@@ -1,0 +1,213 @@
+PRODUCT REQUIREMENTS DOCUMENT (PRD)
+Project Name: Nexus SPC & Production Intelligence Dashboard
+Version: 3.0 (Final – SPC Grade)
+Platform: Web Application (Desktop + Tablet – Responsive)
+
+==================================================
+1. VISION & OBJECTIVE
+==================================================
+The Nexus SPC & Production Intelligence Dashboard is a unified Manufacturing Intelligence Platform combining:
+- Statistical Process Control (SPC)
+- Real-time Production Monitoring
+- Shift-wise Performance Analysis
+- Historical Data Visualization
+- Reporting and Export Automation
+
+It acts as a CONTROL TOWER for:
+Plants → Lines → Stations → Shifts → Quality → Production → Process Stability
+
+==================================================
+2. CORE DATA HIERARCHY
+==================================================
+Plant → Line → Station → Shift → Date Range → View Mode (Production / SPC)
+
+Example:
+Pune → FCPV → OP-20 → Shift B → Last 7 Days → SPC View
+
+==================================================
+3. GLOBAL FILTERS (Sticky Top Bar)
+==================================================
+- Plant: Pune, Chennai, (Scalable)
+- Line: FCPV, LACV, Compressor
+- Station: All Stations, OP-10, OP-20, OP-30...
+- Shift:
+  - All Shifts
+  - Shift A (06:00–14:00)
+  - Shift B (14:00–22:00)
+  - Shift C (22:00–06:00)
+- Date Range:
+  - Today
+  - Yesterday
+  - Last 7 Days
+  - Last 30 Days
+  - Custom
+- View Mode:
+  - Production Dashboard
+  - SPC Dashboard
+
+==================================================
+4. VIEW A – PRODUCTION DASHBOARD
+==================================================
+KPIs:
+- Total Production
+- Target vs Actual
+- OEE
+- Rejection Count
+- Downtime Duration
+- Shift Efficiency
+
+Station Cards:
+- Station Name
+- Live Status (Running / Idle / Fault)
+- Production Count
+- Cycle Time
+
+==================================================
+5. VIEW B – SPC DASHBOARD
+==================================================
+Purpose:
+Monitor process stability and quality using statistical methods.
+
+Charts:
+- X̄ Chart (Mean)
+- R Chart (Range)
+- P Chart (Defect Proportion)
+- Future: C Chart, U Chart
+
+SPC Indicators:
+- UCL (Upper Control Limit)
+- CL (Center Line)
+- LCL (Lower Control Limit)
+
+SPC Rules:
+- Point outside UCL/LCL
+- 7-point trend
+- Cyclic patterns
+- Process shift detection
+
+Alerts:
+- SPC Violation Alert
+- Process Out-of-Control Flag
+
+==================================================
+6. STATION ANALYTICS
+==================================================
+Toolbar:
+- Date Range Selector
+- Shift Selector
+- View Toggle (Graph / Table / SPC)
+- Export: PDF, Excel
+
+==================================================
+7. GRAPH VIEW (Production)
+==================================================
+- Production vs Time
+- Cycle Time vs Time
+- Rejection vs Time
+- Live Mode: 2–3 sec refresh
+
+==================================================
+8. SPC GRAPH VIEW
+==================================================
+Displays:
+- Sample points
+- Control limits
+- SPC rule violations
+- Highlighted abnormal points
+
+Shift-wise SPC comparison supported.
+
+==================================================
+9. TABLE VIEW
+==================================================
+Columns:
+- Timestamp
+- Plant
+- Line
+- Station
+- Shift
+- Part ID
+- Measurement Value (for SPC)
+- Status (OK/NOK)
+- Cycle Time
+- Operator ID
+- Fault Code
+
+==================================================
+10. SHIFT-WISE PERFORMANCE & QUALITY
+==================================================
+KPIs:
+- Shift Production
+- Shift Rejection %
+- Shift Cp, Cpk (Future Phase)
+- Shift Process Stability Index
+
+==================================================
+11. EXPORT REQUIREMENTS
+==================================================
+PDF:
+- Production Report
+- SPC Report with Control Charts
+- Filter Summary
+- KPI Summary
+
+Excel:
+- Raw production data
+- SPC calculation sheets
+
+==================================================
+12. SQL CONTROL VIA TXT FILE (CORE ARCHITECTURE)
+==================================================
+File: /config/queries.txt
+
+Example:
+# PRODUCTION_KPI
+SELECT ...
+
+# SPC_DATA
+SELECT measurement_value, timestamp
+FROM quality_data
+WHERE plant='{{PLANT}}'
+AND line='{{LINE}}'
+AND station='{{STATION}}'
+AND shift='{{SHIFT}}'
+AND timestamp BETWEEN '{{FROM}}' AND '{{TO}}';
+
+Placeholders:
+{{PLANT}}, {{LINE}}, {{STATION}}, {{SHIFT}}, {{FROM}}, {{TO}}
+
+Deployment team edits only SQL logic.
+
+==================================================
+13. FUNCTIONAL REQUIREMENTS
+==================================================
+- SPC calculations in backend
+- Live SPC update < 3 sec
+- Supports 10+ plants, 100+ lines, 1000+ stations
+
+==================================================
+14. TECH STACK (FINAL LOCK)
+==================================================
+Frontend:
+- React (Vite)
+- Tailwind CSS
+- shadcn/ui
+- Recharts
+
+Backend:
+- Node.js
+- Express
+- mssql
+
+Database:
+- Microsoft SQL Server
+
+Exports:
+- PDF: Puppeteer
+- Excel: SheetJS
+
+==================================================
+15. SUMMARY
+==================================================
+This is a full-scale SPC + Production Intelligence System.
+Equivalent to Siemens MES, Ignition SPC, or Rockwell FactoryTalk systems.

@@ -1,0 +1,165 @@
+PRODUCT DESIGN DOCUMENT
+Project Name: Nexus Production Intelligence (NPI) Dashboard Version: 1.0 (Final Draft) Target Platform: Web Desktop / Tablet (Responsive) Visual References: Cloud MES (Layout/Status) & DreamsEMR (Data Structure/Tables)
+
+1. Executive Summary
+The NPI Dashboard is a centralized data visualization tool for a mechanical spares manufacturing company. It serves two distinct purposes:
+
+Real-Time Monitoring: Allowing supervisors to see the live status of production lines across different cities.
+
+Historical Analysis: Allowing engineers to drill down into specific stations, view granular data tables, and export reports.
+
+2. Information Architecture & Hierarchy
+The system uses a "Global Context Filter" approach. The user selects the location context first, which dictates the data shown below.
+
+2.1 The Data Hierarchy
+Level 1: Plant Location
+
+Options: Pune, Chennai (Expandable for future).
+
+Level 2: Production Line
+
+Options: FCPV, LACV, Compressor Line.
+
+Level 3: Station/Asset
+
+Options: All Stations (Overview) OR Specific Station (e.g., "OP-10 Turning", "OP-20 Milling").
+
+3. Detailed Screen Specifications
+3.1 Global Navigation Bar (Sticky Top)
+Left: App Logo ("Nexus").
+
+Center (Context Selectors):
+
+Dropdown 1 [Plant]: Default "Pune".
+
+Dropdown 2 [Line]: Default "FCPV".
+
+Action: Changing these instantly refreshes the main view.
+
+Right: User Profile, Settings, Global Notifications.
+
+3.2 View A: The "Whole Line" Dashboard
+Trigger: User selects a Plant and Line, but does not select a specific station.
+
+Visual Style Reference: Cloud MES Dashboard (Clean cards, status indicators).
+
+Key Components:
+
+KPI Ribbon (Top):
+
+Total Line Output: (e.g., 1,250 parts).
+
+Line OEE: (e.g., 87%).
+
+Active Alerts: (e.g., 2 Critical).
+
+Station Grid (Main Body):
+
+A visual representation of the line flow.
+
+Each station is a Card containing:
+
+Station Name (e.g., OP-10).
+
+Live Status Indicator: Green (Running), Red (Fault), Grey (Idle).
+
+Real-time Counter: Parts produced today.
+
+Current Cycle Time: Live readout (e.g., 42s).
+
+Interaction: Clicking any Station Card takes the user to View B.
+
+3.3 View B: The "Specific Station" Analytics
+Trigger: User clicks a station card OR selects a specific station from a dropdown.
+
+Visual Style Reference: DreamsEMR Dashboard (Tabbed views, detailed lists, clear export actions).
+
+Layout Structure:
+
+A. The Control Toolbar
+Date Filter: [ Today | Yesterday | Last 7 Days | Custom Date Range ].
+
+View Toggle: A segmented control switch: [ 📈 Graph View ] vs [ 📄 Table View ].
+
+Export Actions:
+
+[Icon: PDF] "Export Report"
+
+[Icon: Excel] "Download CSV/XLSX"
+
+B. Mode 1: Graph View (Visual Analysis)
+Primary Chart: A large Area or Line chart showing Production Output vs. Time.
+
+Multi-Graph Overlay Options: Checkboxes to toggle additional data lines on the same chart:
+
+[x] Production Count
+
+[ ] Cycle Time Spikes
+
+[ ] Temperature/Pressure (Telemetry)
+
+Live Mode Toggle: A switch to "Go Live."
+
+Action: Disables date picker, graph updates every 2 seconds (simulating an oscilloscope/heartbeat monitor).
+
+C. Mode 2: Table View (Data Records)
+Structure: A high-density data table (similar to the Medical Records reference).
+
+Columns:
+
+Timestamp: (DD/MM/YYYY HH:MM:SS)
+
+Part Serial ID: (Unique Identifier)
+
+Status: (OK / NOK / Rework) - Color coded text.
+
+Cycle Time: (e.g., 45.2s)
+
+Operator ID: (Who was logged in).
+
+Features: Pagination (Page 1 of 50), Sort by Column headers.
+
+4. Export Functionality
+PDF Export: Generates a "Management Report."
+
+Includes: Snapshot of the current visible Graph, summary of KPIs for the selected date range, and a list of top 5 downtime errors.
+
+Excel Export: Generates a "Raw Data Dump."
+
+Includes: All rows from the Table View for the selected date range.
+
+5. Visual Style Guide (UI System)
+Color Palette
+Background: #F4F7FE (Soft Blue-Grey - reduces eye strain).
+
+Cards/Containers: #FFFFFF (White with subtle shadow).
+
+Primary Action Color: #4318FF (Deep Blue - from MES reference).
+
+Status Colors (The "Traffic Light"):
+
+Running/OK: #05CD99 (Vivid Green).
+
+Warning/Idle: #FFB547 (Amber).
+
+Fault/Error: #E31A1A (Alert Red).
+
+Typography
+Font Family: DM Sans or Inter (Google Fonts).
+
+Reasoning: Highly legible for numbers and data tables.
+
+6. Functional Requirements for Developers
+Latency: Live dashboard status must update within <3 seconds of real-time events.
+
+Responsiveness: Layout must adapt.
+
+Desktop: 4 Station Cards per row.
+
+Tablet: 2 Station Cards per row.
+
+Data Handling:
+
+Graphing Library Recommendation: Recharts or ApexCharts (React).
+
+Table Library Recommendation: TanStack Table (for sorting/filtering).
