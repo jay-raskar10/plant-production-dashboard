@@ -38,6 +38,89 @@ export default function SPCDashboard() {
                 <p className="text-muted-foreground">Process stability monitoring for <span className="font-semibold text-foreground">{currentStation}</span>.</p>
             </div>
 
+            {/* Process Capability Metrics Section */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {/* Cp Card */}
+                <Card className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xl font-medium text-muted-foreground uppercase tracking-wider">Cp</p>
+                                <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-4xl font-bold tracking-tight">1.67</div>
+                                <p className="text-sm text-muted-foreground">Process Capability</p>
+                            </div>
+                            <div className="pt-2 border-t border-border">
+                                <p className="text-sm text-success font-medium">✓ Excellent Capability</p>
+                                <p className="text-sm text-muted-foreground mt-1">Target: &gt; 1.33</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Cpk Card */}
+                <Card className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xl font-medium text-muted-foreground uppercase tracking-wider">Cpk</p>
+                                <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-4xl font-bold tracking-tight">1.52</div>
+                                <p className="text-sm text-muted-foreground">Process Capability Index</p>
+                            </div>
+                            <div className="pt-2 border-t border-border">
+                                <p className="text-sm text-success font-medium">✓ Process Centered</p>
+                                <p className="text-sm text-muted-foreground mt-1">Min acceptable: 1.00</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Pp Card */}
+                <Card className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xl font-medium text-muted-foreground uppercase tracking-wider">Pp</p>
+                                <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-4xl font-bold tracking-tight">1.58</div>
+                                <p className="text-sm text-muted-foreground">Process Performance</p>
+                            </div>
+                            <div className="pt-2 border-t border-border">
+                                <p className="text-sm text-success font-medium">✓ Good Performance</p>
+                                <p className="text-sm text-muted-foreground mt-1">Overall variation</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Ppk Card */}
+                <Card className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col space-y-3">
+                            <div className="flex items-center justify-between">
+                                <p className="text-xl font-medium text-muted-foreground uppercase tracking-wider">Ppk</p>
+                                <div className="h-2 w-2 rounded-full bg-warning animate-pulse" />
+                            </div>
+                            <div className="space-y-1">
+                                <div className="text-4xl font-bold tracking-tight">1.28</div>
+                                <p className="text-sm text-muted-foreground">Performance Index</p>
+                            </div>
+                            <div className="pt-2 border-t border-border">
+                                <p className="text-sm text-warning font-medium">⚠ Monitor Closely</p>
+                                <p className="text-sm text-muted-foreground mt-1">Slightly below target</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* X-Bar Chart */}
                 <ControlChart
