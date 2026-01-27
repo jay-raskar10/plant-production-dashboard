@@ -1,59 +1,95 @@
 import React from 'react';
-import { Bell, Search, Calendar, ChevronDown } from 'lucide-react';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { useFilters } from '@/context/FilterContext';
+import { PLANTS, LINES, STATIONS, SHIFTS, DATERANGES } from '@/lib/data';
 
-const Navbar = ({ filters, setFilters }) => {
-    const handlePlantChange = (e) => setFilters(prev => ({ ...prev, plant: e.target.value }));
-    const handleLineChange = (e) => setFilters(prev => ({ ...prev, line: e.target.value }));
+const Navbar = () => {
+    const { filters, updateFilter } = useFilters();
+
+    // Cascading options
+    const filteredLines = filters.plant === 'all'
+        ? LINES
+        : LINES.filter(l => l.plantId === filters.plant);
+
+    const filteredStations = filters.line === 'all'
+        ? STATIONS
+        : STATIONS.filter(s => s.lineId === filters.line);
 
     return (
-        <header className="sticky top-0 z-30 w-full h-16 border-b border-border/60 bg-background/80 backdrop-blur-md flex items-center px-6 justify-between gap-4">
+        <header className="sticky top-0 z-30 w-full min-h-16 border-b border-border/60 bg-background/95 backdrop-blur-md flex flex-wrap items-center px-6 py-2 gap-4 justify-between">
 
-            {/* Left: Context Selectors */}
-            <div className="flex items-center gap-4 flex-1">
-                <div className="flex items-center gap-2 bg-secondary/50 p-1 rounded-lg border border-border/50">
-                    <Select
-                        value={filters.plant}
-                        onChange={handlePlantChange}
-                        className="w-[140px] font-medium h-8 border-none bg-transparent focus:ring-0 text-sm"
-                    >
-                        <option value="Pune">📍 Pune</option>
-                        <option value="Chennai">📍 Chennai</option>
-                    </Select>
-                    <span className="text-muted-foreground/40 font-light">|</span>
-                    <Select
-                        value={filters.line}
-                        onChange={handleLineChange}
-                        className="w-[160px] font-medium h-8 border-none bg-transparent focus:ring-0 text-sm"
-                    >
-                        <option value="FCPV">🏭 FCPV Line</option>
-                        <option value="LACV">🏭 LACV Line</option>
-                        <option value="Compressor">🏭 Compressor</option>
-                    </Select>
-                </div>
+            {/* Global Filters Bar */}
+            <div className="flex flex-wrap items-center gap-2 flex-1">
 
-                {/* Date Display (Visual only) */}
-                <div className="hidden lg:flex items-center text-sm text-muted-foreground gap-2 ml-4">
-                    <Calendar className="h-4 w-4" />
-                    <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                {/* Plant Selector */}
+                <Select
+                    value={filters.plant}
+                    onChange={(e) => updateFilter('plant', e.target.value)}
+                    className="w-[120px] h-8 text-xs font-medium"
+                >
+                    <option value="all">All Plants</option>
+                    {PLANTS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </Select>
+
+                {/* Line Selector */}
+                <Select
+                    value={filters.line}
+                    onChange={(e) => updateFilter('line', e.target.value)}
+                    className="w-[120px] h-8 text-xs font-medium"
+                >
+                    <option value="all">All Lines</option>
+                    {filteredLines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </Select>
+
+                {/* Station Selector */}
+                <Select
+                    value={filters.station}
+                    onChange={(e) => updateFilter('station', e.target.value)}
+                    className="w-[120px] h-8 text-xs font-medium"
+                >
+                    <option value="all">All Stations</option>
+                    {filteredStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+
+                <div className="h-6 w-px bg-border mx-1 hidden md:block" />
+
+                {/* Shift Selector */}
+                <Select
+                    value={filters.shift}
+                    onChange={(e) => updateFilter('shift', e.target.value)}
+                    className="w-[110px] h-8 text-xs font-medium"
+                >
+                    {SHIFTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+
+                {/* Date Selector */}
+                <Select
+                    value={filters.dateRange}
+                    onChange={(e) => updateFilter('dateRange', e.target.value)}
+                    className="w-[120px] h-8 text-xs font-medium"
+                >
+                    {DATERANGES.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </Select>
+
+                <div className="h-6 w-px bg-border mx-1 hidden md:block" />
+
+                {/* View Mode Selector - Highlighted */}
+                <div className="bg-primary/10 rounded-md p-0.5">
+                    <Select
+                        value={filters.viewMode}
+                        onChange={(e) => updateFilter('viewMode', e.target.value)}
+                        className="w-[140px] h-8 text-xs font-bold border-primary/20 text-primary"
+                    >
+                        <option value="production">📊 Production</option>
+                        <option value="spc">📈 SPC Dashboard</option>
+                    </Select>
                 </div>
             </div>
 
             {/* Right: Actions */}
             <div className="flex items-center gap-3">
-                <div className="relative hidden md:block">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <input
-                        className="h-9 w-64 rounded-md border border-input bg-background pl-9 pr-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
-                        placeholder="Search stations, errors..."
-                    />
-                </div>
-
-                <Button variant="outline" size="icon" className="relative h-9 w-9 rounded-full border-border/60">
-                    <Bell className="h-4 w-4 text-foreground/70" />
-                    <span className="absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-destructive border-2 border-background"></span>
-                </Button>
+                {/* Search removed */}
             </div>
         </header>
     );

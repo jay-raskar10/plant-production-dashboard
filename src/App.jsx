@@ -1,23 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import Dashboard from '@/pages/Dashboard';
 import StationAnalytics from '@/pages/StationAnalytics';
 
 function App() {
-  const [filters, setFilters] = useState({
-    plant: 'Pune',
-    line: 'FCPV',
-    station: 'All',
-    dateRange: 'Today'
-  });
-
   return (
     <Router>
-      <Layout filters={filters} setFilters={setFilters}>
+      <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard filters={filters} />} />
-          <Route path="/station/:id" element={<StationAnalytics filters={filters} />} />
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/station/:id" element={<StationAnalytics />} />
         </Routes>
       </Layout>
     </Router>

@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
 import {
     LayoutDashboard,
-    Settings,
-    BarChart3,
-    FileText,
-    Menu,
-    X,
-    User,
-    LogOut,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Menu,
+    X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -68,47 +63,10 @@ const Sidebar = () => {
                     active={location.pathname === '/' || location.pathname.startsWith('/station')}
                     collapsed={collapsed}
                 />
-                <SidebarItem
-                    icon={BarChart3}
-                    label="Reports"
-                    href="/reports"
-                    active={location.pathname === '/reports'}
-                    collapsed={collapsed}
-                />
-                <SidebarItem
-                    icon={FileText}
-                    label="Line Logs"
-                    href="/logs"
-                    active={location.pathname === '/logs'}
-                    collapsed={collapsed}
-                />
-                <div className="pt-4 mt-4 border-t border-border/50">
-                    <SidebarItem
-                        icon={Settings}
-                        label="Settings"
-                        href="/settings"
-                        active={location.pathname === '/settings'}
-                        collapsed={collapsed}
-                    />
-                </div>
             </div>
 
             {/* Footer / User Profile */}
             <div className="p-3 border-t border-border/50">
-                <div className={cn(
-                    "flex items-center gap-3 p-2 rounded-lg bg-secondary/50 border border-transparent hover:border-border transition-colors cursor-pointer",
-                    collapsed && "justify-center"
-                )}>
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <User className="h-4 w-4 text-primary" />
-                    </div>
-                    {!collapsed && (
-                        <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-medium truncate">Jay Raskar</span>
-                            <span className="text-xs text-muted-foreground truncate">Plant Manager</span>
-                        </div>
-                    )}
-                </div>
                 <Button
                     variant="ghost"
                     size="sm"
