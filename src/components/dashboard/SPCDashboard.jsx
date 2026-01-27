@@ -19,10 +19,10 @@ const HISTOGRAM_DATA = [
 
 // Mock data for defect breakdown pie chart
 const DEFECT_DATA = [
-    { name: 'LVDT Fail', value: 45, color: 'hsl(var(--chart-1))' },
-    { name: 'Camera Fail', value: 30, color: 'hsl(var(--chart-2))' },
-    { name: 'Spring Fail', value: 15, color: 'hsl(var(--chart-3))' },
-    { name: 'Torque Fail', value: 10, color: 'hsl(var(--chart-4))' },
+    { name: 'LVDT Fail', value: 45, color: '#EF4444' },      // Vibrant Red
+    { name: 'Camera Fail', value: 30, color: '#F59E0B' },    // Vibrant Orange
+    { name: 'Spring Fail', value: 15, color: '#8B5CF6' },    // Vibrant Purple
+    { name: 'Torque Fail', value: 10, color: '#3B82F6' },    // Vibrant Blue
 ];
 
 export default function SPCDashboard() {
