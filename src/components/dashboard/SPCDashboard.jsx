@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SPC_DATA } from '@/lib/data';
 import { useFilters } from '@/context/FilterContext';
 import ControlChart from '@/components/charts/ControlChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { TrendingUp, PieChartIcon } from 'lucide-react';
+import { Select } from '@/components/ui/select';
 
 // Mock data for histogram (distribution of measurements)
 const HISTOGRAM_DATA = [
@@ -27,15 +28,32 @@ const DEFECT_DATA = [
 
 export default function SPCDashboard() {
     const { filters } = useFilters();
+    const [selectedParameter, setSelectedParameter] = useState('opening-pressure');
 
     // In a real app, SPC_DATA would be filtered by filters.station
     const currentStation = filters.station === 'all' ? 'All Stations' : filters.station;
 
     return (
         <div className="space-y-8 pb-10">
-            <div className="flex flex-col space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight text-foreground">SPC Analysis</h2>
-                <p className="text-muted-foreground">Process stability monitoring for <span className="font-semibold text-foreground">{currentStation}</span>.</p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex flex-col space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">SPC Analysis</h2>
+                    <p className="text-muted-foreground">Process stability monitoring for <span className="font-semibold text-foreground">{currentStation}</span>.</p>
+                </div>
+
+                {/* Parameter Selector */}
+                <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-muted-foreground whitespace-nowrap">Parameter:</label>
+                    <Select
+                        className="w-[200px] bg-card/50 backdrop-blur-sm border-border/60"
+                        value={selectedParameter}
+                        onChange={(e) => setSelectedParameter(e.target.value)}
+                    >
+                        <option value="opening-pressure">Opening Pressure</option>
+                        <option value="leak-rate">Leak Rate</option>
+                        <option value="safety-pressure">Safety Pressure</option>
+                    </Select>
+                </div>
             </div>
 
             {/* Process Capability Metrics Section */}
