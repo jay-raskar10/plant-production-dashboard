@@ -88,6 +88,8 @@ const LinePerformanceChart = () => {
                                 strokeWidth={3}
                                 fillOpacity={1}
                                 fill="url(#colorOutput)"
+                                dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                                activeDot={{ r: 6 }}
                             />
                             <Line
                                 type="monotone"
