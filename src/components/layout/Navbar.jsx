@@ -2,19 +2,35 @@ import React from 'react';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useFilters } from '@/context/FilterContext';
-import { PLANTS, LINES, STATIONS, SHIFTS, DATERANGES } from '@/lib/data';
 
 const Navbar = () => {
-    const { filters, updateFilter } = useFilters();
+    const { filters, updateFilter, metadata, metadataLoading } = useFilters();
 
     // Cascading options
     const filteredLines = filters.plant === 'all'
-        ? LINES
-        : LINES.filter(l => l.plantId === filters.plant);
+        ? metadata.lines
+        : metadata.lines.filter(l => l.plant_id === filters.plant);
 
     const filteredStations = filters.line === 'all'
-        ? STATIONS
-        : STATIONS.filter(s => s.lineId === filters.line);
+        ? metadata.stations_meta
+        : metadata.stations_meta.filter(s => s.line_id === filters.line);
+
+    // Date ranges - static for now
+    const DATERANGES = [
+        { id: 'today', name: 'Today' },
+        { id: 'yesterday', name: 'Yesterday' },
+        { id: 'last7', name: 'Last 7 Days' },
+        { id: 'last30', name: 'Last 30 Days' },
+        { id: 'custom', name: 'Custom' }
+    ];
+
+    if (metadataLoading) {
+        return (
+            <header className="sticky top-0 z-30 w-full min-h-16 border-b border-border/60 bg-background/95 backdrop-blur-md flex items-center px-6 py-2">
+                <div className="text-sm text-muted-foreground">Loading filters...</div>
+            </header>
+        );
+    }
 
     return (
         <header className="sticky top-0 z-30 w-full min-h-16 border-b border-border/60 bg-background/95 backdrop-blur-md flex flex-wrap items-center px-6 py-2 gap-4 justify-between">
@@ -29,7 +45,7 @@ const Navbar = () => {
                     className="w-[120px] h-8 text-xs font-medium"
                 >
                     <option value="all">All Plants</option>
-                    {PLANTS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {metadata.plants.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </Select>
 
                 {/* Line Selector */}
@@ -60,7 +76,7 @@ const Navbar = () => {
                     onChange={(e) => updateFilter('shift', e.target.value)}
                     className="w-[110px] h-8 text-xs font-medium"
                 >
-                    {SHIFTS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {metadata.shifts.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
 
                 {/* Date Selector */}
@@ -89,7 +105,7 @@ const Navbar = () => {
 
             {/* Right: Actions */}
             <div className="flex items-center gap-3">
-                {/* Search removed */}
+                {/* Connection status indicator - will be added later */}
             </div>
         </header>
     );
