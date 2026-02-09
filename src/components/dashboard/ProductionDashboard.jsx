@@ -1,22 +1,13 @@
-import React from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, AlertTriangle, CheckCircle2, Clock, Zap, TrendingUp, MoreHorizontal, ArrowUpRight } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Clock, Zap, TrendingUp, MoreHorizontal, ArrowUpRight, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { STATIONS as MOCK_STATIONS, KPI_DATA, STATION_STATUS } from '@/lib/data';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Line, ComposedChart } from 'recharts';
 import { useFilters } from '@/context/FilterContext';
-
-// Mock Line Graph Data (moving local for now or imported)
-const LINE_GRAPH_DATA = [
-    { time: '06:00', output: 120, target: 150 },
-    { time: '07:00', output: 132, target: 150 },
-    { time: '08:00', output: 101, target: 150 },
-    { time: '09:00', output: 145, target: 150 },
-    { time: '10:00', output: 160, target: 150 },
-    { time: '11:00', output: 155, target: 150 },
-    { time: '12:00', output: 140, target: 150 },
-];
+import { usePolling } from '@/hooks/usePolling';
+import { apiService } from '@/services/apiService';
+import { API_CONFIG } from '@/config/config';
 
 const KPICard = ({ title, value, subtitle, icon: Icon, trend }) => (
     <Card className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
@@ -38,7 +29,8 @@ const KPICard = ({ title, value, subtitle, icon: Icon, trend }) => (
     </Card>
 );
 
-const LinePerformanceChart = () => {
+
+const LinePerformanceChart = ({ chartData = [] }) => {
     return (
         <Card className="col-span-4 lg:col-span-3 border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
             <CardHeader>
@@ -48,65 +40,75 @@ const LinePerformanceChart = () => {
                 </CardTitle>
             </CardHeader>
             <CardContent className="pl-0">
-                <div className="h-[250px] w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={LINE_GRAPH_DATA} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorOutput" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                            <XAxis
-                                dataKey="time"
-                                stroke="hsl(var(--muted-foreground))"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                                dy={10}
-                            />
-                            <YAxis
-                                stroke="hsl(var(--muted-foreground))"
-                                fontSize={12}
-                                tickLine={false}
-                                axisLine={false}
-                                tickFormatter={(value) => `${value}`}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    borderRadius: '8px',
-                                    border: '1px solid hsl(var(--border))',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
-                                    backgroundColor: 'hsl(var(--card))'
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="output"
-                                stroke="hsl(var(--primary))"
-                                strokeWidth={3}
-                                fillOpacity={1}
-                                fill="url(#colorOutput)"
-                                dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--card))" }}
-                                activeDot={{ r: 6 }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="target"
-                                stroke="hsl(var(--muted-foreground))"
-                                strokeWidth={2}
-                                strokeDasharray="5 5"
-                                dot={false}
-                                opacity={0.5}
-                            />
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                </div>
+                {chartData.length === 0 ? (
+                    <div className="h-[250px] w-full flex items-center justify-center text-muted-foreground">
+                        <div className="text-center">
+                            <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                            <p className="text-sm">Loading chart data...</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="h-[250px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorOutput" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
+                                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                <XAxis
+                                    dataKey="time"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    dy={10}
+                                />
+                                <YAxis
+                                    stroke="hsl(var(--muted-foreground))"
+                                    fontSize={12}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickFormatter={(value) => `${value}`}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: '8px',
+                                        border: '1px solid hsl(var(--border))',
+                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                                        backgroundColor: 'hsl(var(--card))'
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="output"
+                                    stroke="hsl(var(--primary))"
+                                    strokeWidth={3}
+                                    fillOpacity={1}
+                                    fill="url(#colorOutput)"
+                                    dot={{ r: 4, fill: "hsl(var(--primary))", strokeWidth: 2, stroke: "hsl(var(--card))" }}
+                                    activeDot={{ r: 6 }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="target"
+                                    stroke="hsl(var(--muted-foreground))"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={false}
+                                    opacity={0.5}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
             </CardContent>
         </Card>
     )
 }
+
 
 const StationCard = ({ station }) => {
     const navigate = useNavigate();
@@ -164,93 +166,162 @@ const StationCard = ({ station }) => {
 export default function ProductionDashboard() {
     const { filters } = useFilters();
 
-    // Filter stations based on selected line (simple logic for now)
-    const displayStations = filters.line === 'all'
-        ? STATION_STATUS
-        : STATION_STATUS; // In real app, filter here. Mock data STATION_STATUS is small.
+    // Store filters in a ref to avoid recreating fetch function on every filter change
+    const filtersRef = useRef(filters);
 
-    return (
-        <div className="space-y-8 pb-10">
-            <div className="flex flex-col space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight text-foreground">Production Overview</h2>
-                <p className="text-muted-foreground">Real-time monitoring for <span className="font-semibold text-foreground">{filters.line}</span> at <span className="font-semibold text-foreground">{filters.plant}</span>.</p>
-            </div>
+    // Update ref when filters change (but don't trigger re-creation of fetch function)
+    useEffect(() => {
+        filtersRef.current = filters;
+    }, [filters]);
 
-            {/* KPI Ribbon */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KPICard
-                    title="Total Output"
-                    value={KPI_DATA.production.value}
-                    subtitle={`Target: ${KPI_DATA.production.target}`}
-                    icon={Activity}
-                    trend={true}
-                />
-                <KPICard
-                    title="Line OEE"
-                    value={`${KPI_DATA.oee.value}%`}
-                    subtitle="Overall Efficiency"
-                    icon={Zap}
-                    trend={true}
-                />
-                <KPICard
-                    title="Rejections"
-                    value={KPI_DATA.rejection.value}
-                    subtitle="Requires Attention"
-                    icon={AlertTriangle}
-                />
-                <KPICard
-                    title="Shift Efficiency"
-                    value={`${KPI_DATA.efficiency.value}%`}
-                    subtitle="First Pass Yield"
-                    icon={CheckCircle2}
-                    trend={true}
-                />
-            </div>
+    // Memoize the fetch function - stable reference, reads latest filters from ref
+    const fetchLineStatus = useCallback(() => {
+        return apiService.getLineStatus(filtersRef.current);
+    }, []); // Empty deps - function never recreates, always reads latest from ref
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Main Line Chart */}
-                <LinePerformanceChart />
+    // Fetch line status with polling - using configured interval
+    const { data: lineStatus, error, loading } = usePolling(
+        fetchLineStatus,
+        API_CONFIG.POLLING_INTERVAL
+    );
 
-                {/* Side Panel: Top Downtime / Quick Stats (Mock) */}
-                <Card className="col-span-1 border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold">Top Downtime Reasons</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {['Tool Change (OP-20)', 'Material Shortage (OP-10)', 'Sensor Fault (OP-50)'].map((reason, i) => (
-                                <div key={i} className="flex items-center justify-between text-sm">
-                                    <span className="text-muted-foreground">{reason}</span>
-                                    <span className="font-mono font-medium text-destructive">{15 - (i * 3)}m</span>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-6 pt-6 border-t border-border">
-                            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Shift Progress</div>
-                            <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
-                                <div className="bg-primary h-full w-[70%]" />
-                            </div>
-                            <div className="flex justify-between text-xs mt-1 text-muted-foreground">
-                                <span>06:00</span>
-                                <span>14:00</span>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+    // Extract data from API response - display actual production data without any modification
+    const kpiData = lineStatus?.line_kpi || {};
+    const chartData = lineStatus?.charts?.velocity || [];
+    const downtimeData = lineStatus?.downtime?.top_reasons || [];
+    const stationsData = lineStatus?.stations || [];
 
-            {/* Station Grid */}
-            <div>
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                    <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
-                    Station Status
-                </h3>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {displayStations.map((station) => (
-                        <StationCard key={station.id} station={station} />
+
+
+    // Show loading state only on first load
+    if (loading && !lineStatus) {
+        return (
+            <div className="space-y-8 pb-10">
+                <div className="flex flex-col space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Production Overview</h2>
+                    <p className="text-muted-foreground">Loading data...</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Card key={i} className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                            <CardContent className="p-6">
+                                <div className="h-20 animate-pulse bg-muted rounded" />
+                            </CardContent>
+                        </Card>
                     ))}
                 </div>
             </div>
-        </div>
+
+        );
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div className="space-y-8 pb-10">
+                <div className="flex flex-col space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Production Overview</h2>
+                    <div className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="h-5 w-5" />
+                        <p>Failed to load data. Retrying...</p>
+                    </div>
+                </div>
+            </div>
+
+        );
+    }
+
+    return (
+        <>
+            <div className="space-y-8 pb-10">
+                <div className="flex flex-col space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Production Overview</h2>
+                    <p className="text-muted-foreground">Real-time monitoring for <span className="font-semibold text-foreground">{filters.line}</span> at <span className="font-semibold text-foreground">{filters.plant}</span>.</p>
+                </div>
+
+                {/* KPI Ribbon */}
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <KPICard
+                        title="Total Output"
+                        value={kpiData.production?.current || 0}
+                        subtitle={`Target: ${kpiData.production?.target || 0}`}
+                        icon={Activity}
+                        trend={true}
+                    />
+                    <KPICard
+                        title="Line OEE"
+                        value={`${kpiData.oee?.value || 0}%`}
+                        subtitle="Overall Efficiency"
+                        icon={Zap}
+                        trend={true}
+                    />
+                    <KPICard
+                        title="Rejections"
+                        value={kpiData.rejection?.count || 0}
+                        subtitle="Requires Attention"
+                        icon={AlertTriangle}
+                    />
+                    <KPICard
+                        title="Shift Efficiency"
+                        value={`${kpiData.efficiency?.value || 0}%`}
+                        subtitle="First Pass Yield"
+                        icon={CheckCircle2}
+                        trend={true}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    {/* Main Line Chart */}
+                    <LinePerformanceChart chartData={chartData} />
+
+                    {/* Side Panel: Top Downtime / Quick Stats */}
+                    <Card className="col-span-1 border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                        <CardHeader>
+                            <CardTitle className="text-base font-semibold">Top Downtime Reasons</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {downtimeData.slice(0, 3).map((item, i) => (
+                                    <div key={i} className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">{item.reason} ({item.station})</span>
+                                        <span className="font-mono font-medium text-destructive">{item.duration}m</span>
+                                    </div>
+                                ))}
+                                {downtimeData.length === 0 && (
+                                    <p className="text-sm text-muted-foreground">No downtime recorded</p>
+                                )}
+                            </div>
+                            <div className="mt-6 pt-6 border-t border-border">
+                                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Shift Progress</div>
+                                <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
+                                    <div className="bg-primary h-full w-[70%]" />
+                                </div>
+                                <div className="flex justify-between text-xs mt-1 text-muted-foreground">
+                                    <span>06:00</span>
+                                    <span>14:00</span>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Station Grid */}
+                <div>
+                    <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
+                        Station Status
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {stationsData.map((station) => (
+                            <StationCard key={station.id} station={station} />
+                        ))}
+                    </div>
+                    {stationsData.length === 0 && (
+                        <p className="text-muted-foreground text-center py-8">No stations available</p>
+                    )}
+                </div>
+            </div>
+        </>
     );
 }
+

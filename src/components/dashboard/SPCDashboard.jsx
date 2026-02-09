@@ -158,7 +158,7 @@ export default function SPCDashboard() {
                     ucl={3}
                     lcl={0}
                     cl={1.5}
-                    color="hsl(var(--chart-2))"
+                    // color="hsl(var(--chart-2))"
                 />
             </div>
 
