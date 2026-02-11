@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (SECURITY)
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.local
+
+# Developer documentation (local only)
+Meta/*_EXPLAINED.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

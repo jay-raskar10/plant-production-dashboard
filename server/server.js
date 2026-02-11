@@ -1,20 +1,33 @@
 import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { authenticate, validateAuthConfig } from './middleware/auth.js';
+import { getCorsConfig, validateCorsConfig } from './middleware/cors.js';
+import { validateInputValidationConfig } from './middleware/validation.js';
+import { requestLogger, logServerStart, validateLoggingConfig } from './config/logger.js';
 import apiRoutes from './routes/api.routes.js';
 
 // Load environment variables
 dotenv.config();
 
+// Validate authentication configuration
+validateAuthConfig();
+
+// Validate CORS configuration
+validateCorsConfig();
+
+// Validate input validation configuration
+validateInputValidationConfig();
+
+// Validate logging configuration
+validateLoggingConfig();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-    credentials: true
-}));
+app.use(getCorsConfig());  // Dynamic CORS configuration
+app.use(requestLogger);    // Error-only request logging
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -24,17 +37,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check endpoint
+// Health check endpoint (no authentication required)
 app.get('/health', async (req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        message: 'API server is running'
+        message: 'API server is running',
+        authentication: 'enabled'
     });
 });
 
-// API Routes
-app.use('/api', apiRoutes);  // Mock data API routes
+// API Routes (protected with authentication)
+app.use('/api', authenticate, apiRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -59,13 +73,21 @@ app.use(errorHandler);
 // Start server
 app.listen(PORT, () => {
     console.log('╔════════════════════════════════════════════╗');
-    console.log('║  Plant Production Dashboard API Server     ║');
+    console.log('║   Plant Production Dashboard - Server     ║');
     console.log('╚════════════════════════════════════════════╝');
-    console.log(`\n🚀 Server running on port ${PORT}`);
-    console.log(`📊 API URL: http://localhost:${PORT}`);
-    console.log(`💚 Health check: http://localhost:${PORT}/health`);
-    console.log(`\n📝 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📂 Database: ${process.env.DB_NAME || 'MES_Production'}\n`);
+    console.log('');
+
+    logServerStart(PORT);
+
+    console.log('');
+    console.log(`📊 Dashboard: http://localhost:${PORT}`);
+    console.log(`🔧 Health Check: http://localhost:${PORT}/health`);
+    console.log(`📡 API Endpoints: http://localhost:${PORT}/api/meta`);
+    console.log('');
+    console.log(`✅ Authentication: ${process.env.ALLOWED_API_KEYS ? process.env.ALLOWED_API_KEYS.split(',').length + ' key(s) configured' : 'Not configured'}`);
+    console.log('');
+    console.log('Press Ctrl+C to stop the server');
+    console.log('');
 });
 
 // Graceful shutdown

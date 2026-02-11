@@ -4,6 +4,11 @@ import {
     generateLineStatus,
     generateStationDetails
 } from '../utils/mockDataGenerator.js';
+import {
+    validateLineStatus,
+    validateStationStatus,
+    handleValidationErrors
+} from '../middleware/validation.js';
 
 const router = express.Router();
 
@@ -35,7 +40,7 @@ router.get('/meta', async (req, res) => {
  * Get complete line status including Production KPIs and SPC data
  * Query params: plant, line, station, shift, dateRange
  */
-router.get('/line_status', async (req, res) => {
+router.get('/line_status', validateLineStatus, handleValidationErrors, async (req, res) => {
     try {
         const filters = {
             plant: req.query.plant || 'pune',
@@ -67,7 +72,7 @@ router.get('/line_status', async (req, res) => {
  * Get detailed station analytics for drill-down view
  * Query params: id (station ID), dateRange, shift
  */
-router.get('/station_status', async (req, res) => {
+router.get('/station_status', validateStationStatus, handleValidationErrors, async (req, res) => {
     try {
         const stationId = req.query.id || 'op10';
         const dateRange = req.query.dateRange || 'today';

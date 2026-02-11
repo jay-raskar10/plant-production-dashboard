@@ -1,37 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SPC_DATA } from '@/lib/data';
 import { useFilters } from '@/context/FilterContext';
+import { usePolling } from '@/hooks/usePolling';
+import { apiService } from '@/services/apiService';
+import { API_CONFIG } from '@/config/config';
 import ControlChart from '@/components/charts/ControlChart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { TrendingUp, PieChartIcon } from 'lucide-react';
+import { TrendingUp, PieChartIcon, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Select } from '@/components/ui/select';
-
-// Mock data for histogram (distribution of measurements)
-const HISTOGRAM_DATA = [
-    { range: '94-96', frequency: 2 },
-    { range: '96-98', frequency: 8 },
-    { range: '98-100', frequency: 25 },
-    { range: '100-102', frequency: 35 },
-    { range: '102-104', frequency: 22 },
-    { range: '104-106', frequency: 6 },
-    { range: '106-108', frequency: 2 },
-];
-
-// Mock data for defect breakdown pie chart
-const DEFECT_DATA = [
-    { name: 'LVDT Fail', value: 45, color: '#EF4444' },      // Vibrant Red
-    { name: 'Camera Fail', value: 30, color: '#F59E0B' },    // Vibrant Orange
-    { name: 'Spring Fail', value: 15, color: '#8B5CF6' },    // Vibrant Purple
-    { name: 'Torque Fail', value: 10, color: '#3B82F6' },    // Vibrant Blue
-];
 
 export default function SPCDashboard() {
     const { filters } = useFilters();
     const [selectedParameter, setSelectedParameter] = useState('opening-pressure');
 
-    // In a real app, SPC_DATA would be filtered by filters.station
+    // Store filters in a ref to avoid recreating fetch function on every filter change
+    const filtersRef = useRef(filters);
+
+    // Update ref when filters change
+    useEffect(() => {
+        filtersRef.current = filters;
+    }, [filters]);
+
+    // Memoize the fetch function - stable reference, reads latest filters from ref
+    const fetchLineStatus = useCallback(() => {
+        return apiService.getLineStatus(filtersRef.current);
+    }, []);
+
+    // Fetch line status with polling
+    const { data: lineStatus, error, loading } = usePolling(
+        fetchLineStatus,
+        API_CONFIG.POLLING_INTERVAL
+    );
+
+    // Extract SPC data from API response
+    const spcData = lineStatus?.spc || {};
+    const metrics = spcData.metrics || {};
+    const charts = spcData.charts || {};
+    const alerts = spcData.alerts || [];
+
     const currentStation = filters.station === 'all' ? 'All Stations' : filters.station;
+
+    // Show loading state only on first load
+    if (loading && !lineStatus) {
+        return (
+            <div className="space-y-8 pb-10">
+                <div className="flex flex-col space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">SPC Analysis</h2>
+                    <p className="text-muted-foreground">Loading data...</p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Card key={i} className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                            <CardContent className="p-6">
+                                <div className="h-32 animate-pulse bg-muted rounded" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div className="space-y-8 pb-10">
+                <div className="flex flex-col space-y-2">
+                    <h2 className="text-3xl font-bold tracking-tight text-foreground">SPC Analysis</h2>
+                    <div className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="h-5 w-5" />
+                        <p>Failed to load SPC data. Retrying...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8 pb-10">
@@ -67,11 +110,11 @@ export default function SPCDashboard() {
                                 <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-4xl font-bold tracking-tight">1.67</div>
+                                <div className="text-4xl font-bold tracking-tight">{metrics.cp?.value || 0}</div>
                                 <p className="text-sm text-muted-foreground">Process Capability</p>
                             </div>
                             <div className="pt-2 border-t border-border">
-                                <p className="text-sm text-success font-medium">✓ Excellent Capability</p>
+                                <p className="text-sm text-success font-medium">{metrics.cp?.status || 'N/A'}</p>
                                 <p className="text-sm text-muted-foreground mt-1">Target: &gt; 1.33</p>
                             </div>
                         </div>
@@ -87,11 +130,11 @@ export default function SPCDashboard() {
                                 <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-4xl font-bold tracking-tight">1.52</div>
+                                <div className="text-4xl font-bold tracking-tight">{metrics.cpk?.value || 0}</div>
                                 <p className="text-sm text-muted-foreground">Process Capability Index</p>
                             </div>
                             <div className="pt-2 border-t border-border">
-                                <p className="text-sm text-success font-medium">✓ Process Centered</p>
+                                <p className="text-sm text-success font-medium">{metrics.cpk?.status || 'N/A'}</p>
                                 <p className="text-sm text-muted-foreground mt-1">Min acceptable: 1.00</p>
                             </div>
                         </div>
@@ -107,11 +150,11 @@ export default function SPCDashboard() {
                                 <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-4xl font-bold tracking-tight">1.58</div>
+                                <div className="text-4xl font-bold tracking-tight">{metrics.pp?.value || 0}</div>
                                 <p className="text-sm text-muted-foreground">Process Performance</p>
                             </div>
                             <div className="pt-2 border-t border-border">
-                                <p className="text-sm text-success font-medium">✓ Good Performance</p>
+                                <p className="text-sm text-success font-medium">{metrics.pp?.status || 'N/A'}</p>
                                 <p className="text-sm text-muted-foreground mt-1">Overall variation</p>
                             </div>
                         </div>
@@ -127,11 +170,11 @@ export default function SPCDashboard() {
                                 <div className="h-2 w-2 rounded-full bg-warning animate-pulse" />
                             </div>
                             <div className="space-y-1">
-                                <div className="text-4xl font-bold tracking-tight">1.28</div>
+                                <div className="text-4xl font-bold tracking-tight">{metrics.ppk?.value || 0}</div>
                                 <p className="text-sm text-muted-foreground">Performance Index</p>
                             </div>
                             <div className="pt-2 border-t border-border">
-                                <p className="text-sm text-warning font-medium">⚠ Monitor Closely</p>
+                                <p className="text-sm text-warning font-medium">{metrics.ppk?.status || 'N/A'}</p>
                                 <p className="text-sm text-muted-foreground mt-1">Slightly below target</p>
                             </div>
                         </div>
@@ -143,22 +186,21 @@ export default function SPCDashboard() {
                 {/* X-Bar Chart */}
                 <ControlChart
                     title="X-Bar Chart (Mean)"
-                    data={SPC_DATA}
+                    data={charts.control_points || []}
                     dataKey="mean"
-                    ucl={105}
-                    lcl={95}
-                    cl={100}
+                    ucl={charts.control_points?.[0]?.ucl || 105}
+                    lcl={charts.control_points?.[0]?.lcl || 95}
+                    cl={charts.control_points?.[0]?.cl || 100}
                 />
 
                 {/* R Chart */}
                 <ControlChart
                     title="R-Chart (Range)"
-                    data={SPC_DATA}
+                    data={charts.control_points || []}
                     dataKey="range"
-                    ucl={3}
-                    lcl={0}
-                    cl={1.5}
-                    // color="hsl(var(--chart-2))"
+                    ucl={charts.control_points?.[0]?.ucl_r || 3}
+                    lcl={charts.control_points?.[0]?.lcl_r || 0}
+                    cl={(charts.control_points?.[0]?.ucl_r || 3) / 2}
                 />
             </div>
 
@@ -175,7 +217,7 @@ export default function SPCDashboard() {
                     <CardContent>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={HISTOGRAM_DATA} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                <BarChart data={charts.histogram || []} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                                     <XAxis
                                         dataKey="range"
@@ -224,7 +266,7 @@ export default function SPCDashboard() {
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
-                                        data={DEFECT_DATA}
+                                        data={charts.defects || []}
                                         cx="50%"
                                         cy="50%"
                                         labelLine={false}
@@ -233,8 +275,8 @@ export default function SPCDashboard() {
                                         fill="hsl(var(--primary))"
                                         dataKey="value"
                                     >
-                                        {DEFECT_DATA.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        {(charts.defects || []).map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color || `hsl(${index * 60}, 70%, 50%)`} />
                                         ))}
                                     </Pie>
                                     <Tooltip
@@ -268,14 +310,16 @@ export default function SPCDashboard() {
                 </CardHeader>
                 <CardContent>
                     <ul className="space-y-3">
-                        <li className="flex items-center justify-between p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                            <span className="text-sm font-medium text-destructive-foreground">Rule 1 Violation: Point beyond UCL</span>
-                            <span className="text-xs text-muted-foreground">10:45 AM - OP-20</span>
-                        </li>
-                        <li className="flex items-center justify-between p-3 rounded-md bg-warning/10 border border-warning/20">
-                            <span className="text-sm font-medium text-warning-foreground">Rule 4: 8 consecutive points on one side of CL</span>
-                            <span className="text-xs text-muted-foreground">09:30 AM - OP-10</span>
-                        </li>
+                        {alerts.length > 0 ? (
+                            alerts.map((alert, index) => (
+                                <li key={index} className="flex items-center justify-between p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                                    <span className="text-sm font-medium text-destructive-foreground">{alert.message}</span>
+                                    <span className="text-xs text-muted-foreground">{alert.time} - {alert.station}</span>
+                                </li>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No SPC violations detected</p>
+                        )}
                     </ul>
                 </CardContent>
             </Card>

@@ -19,9 +19,17 @@ const fetchWithTimeout = async (url, options = {}) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
 
+    // Add API key to headers
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-API-Key': import.meta.env.VITE_API_KEY,
+        ...options.headers
+    };
+
     try {
         const response = await fetch(url, {
             ...options,
+            headers,
             signal: controller.signal
         });
 

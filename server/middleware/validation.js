@@ -1,101 +1,159 @@
-import { STATIONS, PARAMETERS, SHIFTS } from '../utils/constants.js';
+/**
+ * Input Validation Middleware
+ * 
+ * Provides minimal security-focused validation for API endpoints
+ * Does NOT validate business rules - LabVIEW backend handles that
+ * 
+ * Focus areas:
+ * - XSS prevention (sanitize HTML)
+ * - SQL/NoSQL injection prevention (character whitelist)
+ * - Buffer overflow prevention (length limits)
+ * - Type validation (ensure strings, numbers, etc.)
+ * 
+ * Usage:
+ *   router.get('/endpoint', sanitizeQueryParams, handleValidationErrors, handler);
+ */
+
+import { query, validationResult } from 'express-validator';
+import { logValidationFailure } from '../config/logger.js';
 
 /**
- * Validate station parameter
+ * Sanitize and validate query parameters for line_status endpoint
+ * Security-focused: prevents injection attacks, XSS, buffer overflow
  */
-export function validateStation(req, res, next) {
-    const { station } = req.query;
+export const validateLineStatus = [
+    query('plant')
+        .optional()
+        .trim()                                    // Remove whitespace
+        .escape()                                  // Prevent XSS
+        .isLength({ max: 100 })                   // Prevent buffer overflow
+        .matches(/^[a-zA-Z0-9_-]+$/)              // Alphanumeric + underscore/hyphen only
+        .withMessage('Plant must be alphanumeric'),
 
-    if (station && !STATIONS.includes(station)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: 'VALIDATION_ERROR',
-                message: `Invalid station. Must be one of: ${STATIONS.join(', ')}`
-            }
-        });
-    }
+    query('line')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 100 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Line must be alphanumeric'),
 
-    next();
-}
+    query('station')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 100 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Station must be alphanumeric'),
+
+    query('shift')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 50 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Shift must be alphanumeric'),
+
+    query('dateRange')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 50 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Date range must be alphanumeric')
+];
 
 /**
- * Validate parameter for a given station
+ * Sanitize and validate query parameters for station_status endpoint
  */
-export function validateParameter(req, res, next) {
-    const { station, parameter } = req.query;
+export const validateStationStatus = [
+    query('id')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 100 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Station ID must be alphanumeric'),
 
-    if (!station) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: 'VALIDATION_ERROR',
-                message: 'Station is required'
-            }
-        });
-    }
+    query('dateRange')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 50 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Date range must be alphanumeric'),
 
-    if (!parameter) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: 'VALIDATION_ERROR',
-                message: 'Parameter is required'
-            }
-        });
-    }
-
-    if (!PARAMETERS[station] || !PARAMETERS[station].includes(parameter)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: 'VALIDATION_ERROR',
-                message: `Invalid parameter for ${station}. Must be one of: ${PARAMETERS[station]?.join(', ') || 'none'}`
-            }
-        });
-    }
-
-    next();
-}
+    query('shift')
+        .optional()
+        .trim()
+        .escape()
+        .isLength({ max: 50 })
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage('Shift must be alphanumeric')
+];
 
 /**
- * Validate date parameter
+ * Generic sanitization for any query parameters
+ * Use this for endpoints where you don't know all possible parameters
  */
-export function validateDate(req, res, next) {
-    const { date, startDate, endDate } = req.query;
+export const sanitizeAllQueryParams = (req, res, next) => {
+    // Sanitize all query parameters
+    Object.keys(req.query).forEach(key => {
+        if (typeof req.query[key] === 'string') {
+            // Trim whitespace
+            req.query[key] = req.query[key].trim();
 
-    const dates = [date, startDate, endDate].filter(Boolean);
+            // Limit length to prevent buffer overflow
+            if (req.query[key].length > 1000) {
+                req.query[key] = req.query[key].substring(0, 1000);
+            }
 
-    for (const d of dates) {
-        if (isNaN(Date.parse(d))) {
-            return res.status(400).json({
-                success: false,
-                error: {
-                    code: 'VALIDATION_ERROR',
-                    message: `Invalid date format: ${d}. Use ISO 8601 format (YYYY-MM-DD)`
-                }
-            });
+            // Basic XSS prevention (escape HTML)
+            req.query[key] = req.query[key]
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;')
+                .replace(/\//g, '&#x2F;');
         }
+    });
+
+    next();
+};
+
+/**
+ * Validation error handler
+ * Formats validation errors and returns 400 Bad Request
+ */
+export function handleValidationErrors(req, res, next) {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+        // Log validation failure (potential security event)
+        logValidationFailure(req, errors.array());
+
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid request parameters',
+            message: 'One or more parameters failed security validation',
+            details: errors.array().map(err => ({
+                field: err.path,
+                message: err.msg,
+                value: err.value
+            }))
+        });
     }
 
     next();
 }
 
 /**
- * Validate shift parameter
+ * Validate environment configuration on startup
  */
-export function validateShift(req, res, next) {
-    const { shift } = req.query;
-
-    if (shift && !SHIFTS.includes(shift)) {
-        return res.status(400).json({
-            success: false,
-            error: {
-                code: 'VALIDATION_ERROR',
-                message: `Invalid shift. Must be one of: ${SHIFTS.join(', ')}`
-            }
-        });
-    }
-
-    next();
+export function validateInputValidationConfig() {
+    console.log('✅ Input validation configured (security-focused)');
+    console.log('   - XSS prevention: enabled');
+    console.log('   - Injection prevention: enabled');
+    console.log('   - Buffer overflow prevention: enabled');
+    console.log('   - Business rule validation: delegated to LabVIEW');
 }
