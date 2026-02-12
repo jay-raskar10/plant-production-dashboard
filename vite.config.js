@@ -15,8 +15,16 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,
     allowedHosts: [
       "studied-cherlyn-chastenedly.ngrok-free.dev",
     ],
+    proxy: {
+      '/api': {
+        target: 'http://192.168.1.14:8001',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
 })

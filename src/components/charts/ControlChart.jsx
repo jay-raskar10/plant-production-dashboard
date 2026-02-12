@@ -13,7 +13,7 @@ const ControlChart = ({ title, data, dataKey, ucl, lcl, cl, color = "hsl(var(--p
                     <LineChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                         <XAxis
-                            dataKey="timestamp"
+                            dataKey="time"
                             stroke="hsl(var(--muted-foreground))"
                             fontSize={12}
                             tickLine={false}

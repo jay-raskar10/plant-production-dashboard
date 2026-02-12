@@ -2,7 +2,7 @@
  * API Configuration
  */
 export const API_CONFIG = {
-    BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+    BASE_URL: import.meta.env.VITE_API_BASE_URL || '',
     TIMEOUT: parseInt(import.meta.env.VITE_API_TIMEOUT) || 10000,
     POLLING_INTERVAL: parseInt(import.meta.env.VITE_POLLING_INTERVAL) || 5000
 };
@@ -10,7 +10,8 @@ export const API_CONFIG = {
 export const ENDPOINTS = {
     META: '/api/meta',
     LINE_STATUS: '/api/line_status',
-    STATION_STATUS: '/api/station_status'
+    STATION_DETAILS: '/api/station_details',
+    SPC: '/api/spc'
 };
 
 // Debug: Log configuration on load

@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Download, Calendar, Activity, Table as TableIcon, LineChart as ChartIcon, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Calendar, Activity, Table as TableIcon, LineChart as ChartIcon, FileText, AlertTriangle, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFilters } from '@/context/FilterContext';
-import { SPC_DATA } from '@/lib/data';
+import { apiService } from '@/services/apiService';
+import { API_CONFIG } from '@/config/config';
+import { usePolling } from '@/hooks/usePolling';
 import ControlChart from '@/components/charts/ControlChart';
+import { cn } from "@/lib/utils";
 
 const MOCK_GRAPH_DATA = [
     { time: '06:00', output: 0 },
@@ -24,10 +27,65 @@ export default function StationAnalytics() {
     const { filters } = useFilters();
     const [viewMode, setViewMode] = useState('graph'); // 'graph', 'table', 'spc'
 
+    // Fetch station details with polling
+    const fetchStationDetails = React.useCallback(() => {
+        return apiService.getStationDetails(id, filters);
+    }, [id, filters]);
+
+    const { data: stationData, error, loading } = usePolling(
+        fetchStationDetails,
+        API_CONFIG.POLLING_INTERVAL
+    );
+
+    // Also fetch SPC data specifically for this station
+    const fetchStationSPC = React.useCallback(() => {
+        return apiService.getSPCData({
+            ...filters,
+            station: id
+        });
+    }, [id, filters]);
+
+    const { data: stationSPCData } = usePolling(
+        fetchStationSPC,
+        API_CONFIG.POLLING_INTERVAL
+    );
+
     const handleExport = () => {
         alert("Exporting report for " + id + "...");
-        // In real app: trigger PDF/Excel generation here
     };
+
+    // Show loading state
+    if (loading && !stationData) {
+        return (
+            <div className="h-[500px] w-full flex flex-col items-center justify-center text-muted-foreground">
+                <RefreshCw className="h-10 w-10 animate-spin mb-4" />
+                <p>Loading station analytics...</p>
+            </div>
+        );
+    }
+
+    // Show error state
+    if (error) {
+        return (
+            <div className="h-[500px] w-full flex flex-col items-center justify-center text-destructive">
+                <AlertTriangle className="h-10 w-10 mb-4" />
+                <p>Failed to load station data. Retrying...</p>
+            </div>
+        );
+    }
+
+    // Extract data with fallback for both flat and nested structures
+    const activeData = stationData?.station_details || stationData?.data || stationData || {};
+    const { charts = {}, logs = [] } = activeData;
+
+    // Support both nested and direct trend/log mapping
+    const graphData = activeData.production_trend || charts.production_trend || [];
+    const tableLogs = activeData.logs || logs || [];
+
+    // Get SPC data from the dedicated SPC fetch
+    const spcContent = stationSPCData?.spc || stationSPCData || {};
+    const spcPoints = spcContent.charts?.control_points || spcContent.control_points || [];
+    const spcLimits = spcContent.charts?.control_points?.[0] || spcContent.control_points?.[0] || {};
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
@@ -37,8 +95,8 @@ export default function StationAnalytics() {
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <div>
-                        <h2 className="text-3xl font-bold tracking-tight">Station: {id}</h2>
-                        <p className="text-muted-foreground">Detailed analytics for <span className="font-semibold">{filters.plant}</span> / <span className="font-semibold">{filters.line}</span>.</p>
+                        <h2 className="text-3xl 2xl:text-4xl 3xl:text-5xl font-bold tracking-tight">Station: {id}</h2>
+                        <p className="text-muted-foreground 2xl:text-lg">Detailed analytics for <span className="font-semibold">{filters.plant}</span> / <span className="font-semibold">{filters.line}</span>.</p>
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -86,23 +144,29 @@ export default function StationAnalytics() {
                 <CardContent>
                     {viewMode === 'graph' && (
                         <div className="h-[400px] w-full mt-4">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={MOCK_GRAPH_DATA}>
-                                    <defs>
-                                        <linearGradient id="colorOutput2" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                                    <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                                    <Tooltip
-                                        contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'hsl(var(--card))' }}
-                                    />
-                                    <Area type="monotone" dataKey="output" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorOutput2)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+                            {graphData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={graphData}>
+                                        <defs>
+                                            <linearGradient id="colorOutput2" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                                        <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} dy={10} />
+                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                                        <Tooltip
+                                            contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'hsl(var(--card))' }}
+                                        />
+                                        <Area type="monotone" dataKey="output" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorOutput2)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-full w-full flex items-center justify-center text-muted-foreground">
+                                    No trend data available for this station.
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -124,20 +188,34 @@ export default function StationAnalytics() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[1, 2, 3, 4, 5].map((i) => (
-                                        <tr key={i} className="border-b transition-colors hover:bg-muted/50">
-                                            <td className="p-4 whitespace-nowrap">10:{30 + i}:00</td>
-                                            <td className="p-4 whitespace-nowrap">{filters.plant}</td>
-                                            <td className="p-4 whitespace-nowrap">{filters.line}</td>
-                                            <td className="p-4 whitespace-nowrap">{id}</td>
-                                            <td className="p-4 whitespace-nowrap">{filters.shift}</td>
-                                            <td className="p-4 whitespace-nowrap">PN-2023-{100 + i}</td>
-                                            <td className="p-4 text-right font-mono">{(10.0 + Math.random()).toFixed(3)}</td>
-                                            <td className="p-4"><span className="text-success font-medium bg-success/10 px-2 py-0.5 rounded-full text-xs">OK</span></td>
-                                            <td className="p-4 text-right whitespace-nowrap">45.2s</td>
-                                            <td className="p-4 whitespace-nowrap">OP-{10 + i}</td>
+                                    {tableLogs.map((log, i) => (
+                                        <tr key={log.id || i} className="border-b transition-colors hover:bg-muted/50">
+                                            <td className="p-4 whitespace-nowrap">{log.timestamp}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.plant || filters.plant}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.line || filters.line}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.station || id}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.shift || filters.shift}</td>
+                                            <td className="p-4 whitespace-nowrap">{log.part_id}</td>
+                                            <td className="p-4 text-right font-mono">{log.value}</td>
+                                            <td className="p-4">
+                                                <span className={cn(
+                                                    "font-medium px-2 py-0.5 rounded-full text-xs",
+                                                    log.status === 'OK' ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
+                                                )}>
+                                                    {log.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 text-right whitespace-nowrap">{log.cycle_time}s</td>
+                                            <td className="p-4 whitespace-nowrap">{log.operator}</td>
                                         </tr>
                                     ))}
+                                    {tableLogs.length === 0 && (
+                                        <tr>
+                                            <td colSpan="10" className="p-8 text-center text-muted-foreground">
+                                                No production logs found for the selected filters.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
@@ -147,19 +225,19 @@ export default function StationAnalytics() {
                         <div className="mt-4 grid gap-8">
                             <ControlChart
                                 title="Station X-Bar Chart"
-                                data={SPC_DATA}
+                                data={spcPoints}
                                 dataKey="mean"
-                                ucl={105}
-                                lcl={95}
-                                cl={100}
+                                ucl={spcLimits.ucl || 105}
+                                lcl={spcLimits.lcl || 95}
+                                cl={spcLimits.cl || 100}
                             />
                             <ControlChart
                                 title="Station R-Chart"
-                                data={SPC_DATA}
+                                data={spcPoints}
                                 dataKey="range"
-                                ucl={3}
-                                lcl={0}
-                                cl={1.5}
+                                ucl={spcLimits.ucl_r || 3}
+                                lcl={spcLimits.lcl_r || 0}
+                                cl={spcLimits.cl_r || 1.5}
                                 color="hsl(var(--destructive))"
                             />
                         </div>

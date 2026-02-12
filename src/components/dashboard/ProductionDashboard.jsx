@@ -32,7 +32,7 @@ const KPICard = ({ title, value, subtitle, icon: Icon, trend }) => (
 
 const LinePerformanceChart = ({ chartData = [] }) => {
     return (
-        <Card className="col-span-4 lg:col-span-3 border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+        <Card className="col-span-4 lg:col-span-3 h-full border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
             <CardHeader>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-primary" />
@@ -48,7 +48,7 @@ const LinePerformanceChart = ({ chartData = [] }) => {
                         </div>
                     </div>
                 ) : (
-                    <div className="h-[250px] w-full">
+                    <div className="h-[300px] 2xl:h-[400px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                 <defs>
@@ -124,7 +124,7 @@ const StationCard = ({ station }) => {
         <div
             onClick={() => navigate(`/station/${station.id}`)}
             className={cn(
-                "group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/30 cursor-pointer overflow-hidden backdrop-blur-sm",
+                "group relative flex flex-col justify-between h-full rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:border-primary/30 cursor-pointer overflow-hidden backdrop-blur-sm",
                 statusConfig.border
             )}
         >
@@ -150,7 +150,7 @@ const StationCard = ({ station }) => {
                     <span className="text-[10px] uppercase text-muted-foreground font-semibold">Cycle Time</span>
                     <div className="flex items-center gap-1.5">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-lg font-medium">{station.cycleTime}s</span>
+                        <span className="text-lg font-medium">{station.cycle_time}s</span>
                     </div>
                 </div>
             </div>
@@ -235,12 +235,12 @@ export default function ProductionDashboard() {
         <>
             <div className="space-y-8 pb-10">
                 <div className="flex flex-col space-y-2">
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground">Production Overview</h2>
-                    <p className="text-muted-foreground">Real-time monitoring for <span className="font-semibold text-foreground">{filters.line}</span> at <span className="font-semibold text-foreground">{filters.plant}</span>.</p>
+                    <h2 className="text-3xl 2xl:text-4xl 3xl:text-5xl font-bold tracking-tight text-foreground">Production Overview</h2>
+                    <p className="text-muted-foreground 2xl:text-lg">Real-time monitoring for <span className="font-semibold text-foreground">{filters.line}</span> at <span className="font-semibold text-foreground">{filters.plant}</span>.</p>
                 </div>
 
                 {/* KPI Ribbon */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 3xl:grid-cols-8">
                     <KPICard
                         title="Total Output"
                         value={kpiData.production?.current || 0}
@@ -270,12 +270,14 @@ export default function ProductionDashboard() {
                     />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                     {/* Main Line Chart */}
-                    <LinePerformanceChart chartData={chartData} />
+                    <div className="lg:col-span-3 xl:col-span-4 h-full">
+                        <LinePerformanceChart chartData={chartData} />
+                    </div>
 
                     {/* Side Panel: Top Downtime / Quick Stats */}
-                    <Card className="col-span-1 border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
+                    <Card className="col-span-1 h-full border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
                         <CardHeader>
                             <CardTitle className="text-base font-semibold">Top Downtime Reasons</CardTitle>
                         </CardHeader>
@@ -311,7 +313,7 @@ export default function ProductionDashboard() {
                         <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                         Station Status
                     </h3>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-8">
                         {stationsData.map((station) => (
                             <StationCard key={station.id} station={station} />
                         ))}

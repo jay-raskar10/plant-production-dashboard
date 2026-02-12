@@ -11,18 +11,30 @@ import { cn } from '@/lib/utils';
 import { useLocation, Link } from 'react-router-dom';
 
 const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
-    <Link to={href}>
+    <Link to={href} className="block relative">
         <div className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-md transition-all group",
+            "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative overflow-hidden",
             active
-                ? "bg-primary text-primary-foreground shadow-sm font-medium"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                ? "bg-primary/10 text-primary font-semibold"
+                : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
             collapsed && "justify-center px-2"
         )}>
-            <Icon className={cn("h-5 w-5 shrink-0", active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
-            {!collapsed && <span className="truncate">{label}</span>}
+            {/* Active Accent Strip */}
+            {active && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+            )}
+
+            <Icon className={cn(
+                "h-5 w-5 shrink-0 transition-colors duration-200",
+                active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+            )} />
+
+            {!collapsed && (
+                <span className="truncate text-sm tracking-tight">{label}</span>
+            )}
+
             {collapsed && (
-                <div className="absolute left-14 bg-popover text-popover-foreground px-2 py-1 rounded-md text-sm shadow-md invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all z-50 whitespace-nowrap border">
+                <div className="absolute left-16 bg-popover text-popover-foreground px-2 py-1 rounded-md text-sm shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all z-50 whitespace-nowrap border border-border/50 backdrop-blur-md">
                     {label}
                 </div>
             )}
@@ -42,15 +54,25 @@ const Sidebar = () => {
             )}
         >
             {/* Brand Header */}
-            <div className="h-16 flex items-center px-4 border-b border-border/50">
-                <div className={cn("flex items-center gap-3 w-full", collapsed ? "justify-center" : "justify-between")}>
-                    {!collapsed && (
-                        <div className="flex flex-col">
-                            <span className="font-bold text-lg leading-none tracking-tight text-foreground">Knorr-Bremse</span>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">NPI Dashboard</span>
+            <div className="h-16 flex items-center border-b border-border/50 bg-background/50 backdrop-blur-sm transition-all duration-300">
+                <div className={cn("flex items-center w-full transition-all duration-300 h-full", collapsed ? "justify-center" : "justify-start px-4")}>
+                    {!collapsed ? (
+                        <div className="animate-in fade-in duration-500">
+                            <img
+                                src="/knorr-bremse.svg"
+                                alt="Knorr-Bremse"
+                                className="h-7 w-auto object-contain transition-all hover:scale-105"
+                            />
+                        </div>
+                    ) : (
+                        <div className="h-full w-full flex items-center justify-center p-3 animate-in zoom-in duration-500 overflow-hidden">
+                            <img
+                                src="/KB.svg"
+                                alt="KB"
+                                className="h-full w-full object-contain"
+                            />
                         </div>
                     )}
-                    {collapsed && <span className="font-bold text-xl text-primary">KB</span>}
                 </div>
             </div>
 

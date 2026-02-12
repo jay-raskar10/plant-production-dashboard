@@ -10,6 +10,8 @@ export const FilterProvider = ({ children }) => {
         station: 'all',
         shift: 'all',
         dateRange: 'today',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
         viewMode: 'production', // 'production' or 'spc'
     });
 
@@ -23,16 +25,22 @@ export const FilterProvider = ({ children }) => {
     const [metadataLoading, setMetadataLoading] = useState(true);
     const [metadataError, setMetadataError] = useState(null);
 
-    // Fetch metadata on mount
+    // Use local metadata directly since /api/meta is not active on the live server
     useEffect(() => {
         const loadMetadata = async () => {
+            setMetadataLoading(true);
             try {
-                setMetadataLoading(true);
-                const data = await apiService.getMetadata();
-                setMetadata(data);
-                setMetadataError(null);
+                // We use the imported data from ../lib/data.js if available
+                // or just import them here to be explicit
+                const { PLANTS, LINES, STATIONS, SHIFTS } = await import('../lib/data.js');
+                setMetadata({
+                    plants: PLANTS,
+                    lines: LINES,
+                    stations_meta: STATIONS,
+                    shifts: SHIFTS
+                });
             } catch (error) {
-                console.error('Failed to load metadata:', error);
+                console.error('Failed to load local metadata:', error);
                 setMetadataError(error.message);
             } finally {
                 setMetadataLoading(false);

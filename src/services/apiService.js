@@ -115,11 +115,8 @@ export const apiService = {
         const response = await fetchWithTimeout(url);
         const json = await response.json();
 
-        if (!json.success) {
-            throw new ApiError('Failed to fetch line status', response.status, json);
-        }
-
-        return json.data;
+        // Return direct JSON as LabVIEW API doesn't use success/data wrapper
+        return json;
     },
 
     /**
@@ -130,15 +127,30 @@ export const apiService = {
     getStationDetails: async (stationId, filters = {}) => {
         return retryWithBackoff(async () => {
             const params = new URLSearchParams({ id: stationId, ...filters });
-            const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.STATION_STATUS}?${params}`;
+            const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.STATION_DETAILS}?${params}`;
             const response = await fetchWithTimeout(url);
             const json = await response.json();
 
-            if (!json.success) {
-                throw new ApiError('Failed to fetch station details', response.status, json);
-            }
+            // Return direct JSON result
+            return json;
+        });
+    },
 
-            return json.data;
+    /**
+     * Get SPC data
+     * @param {Object} filters - { plant, line, station, shift, dateRange, parameter }
+     */
+    getSPCData: async (filters = {}) => {
+        return retryWithBackoff(async () => {
+            const params = new URLSearchParams(filters);
+            const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.SPC}?${params}`;
+            console.log('📡 Fetching SPC:', url);
+
+            const response = await fetchWithTimeout(url);
+            const json = await response.json();
+
+            // Return direct JSON result
+            return json;
         });
     },
 

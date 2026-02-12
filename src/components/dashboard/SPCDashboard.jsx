@@ -22,26 +22,29 @@ export default function SPCDashboard() {
     }, [filters]);
 
     // Memoize the fetch function - stable reference, reads latest filters from ref
-    const fetchLineStatus = useCallback(() => {
-        return apiService.getLineStatus(filtersRef.current);
-    }, []);
+    const fetchSPCData = useCallback(() => {
+        return apiService.getSPCData({
+            ...filtersRef.current,
+            parameter: selectedParameter
+        });
+    }, [selectedParameter]); // Only recreate when selectedParameter changes
 
-    // Fetch line status with polling
-    const { data: lineStatus, error, loading } = usePolling(
-        fetchLineStatus,
+    // Fetch SPC data with polling
+    const { data: spcData, error, loading } = usePolling(
+        fetchSPCData,
         API_CONFIG.POLLING_INTERVAL
     );
 
-    // Extract SPC data from API response
-    const spcData = lineStatus?.spc || {};
-    const metrics = spcData.metrics || {};
-    const charts = spcData.charts || {};
-    const alerts = spcData.alerts || [];
+    // Extract SPC data from the nested 'spc' object returned by the API
+    const spcContent = spcData?.spc || {};
+    const metrics = spcContent.metrics || {};
+    const charts = spcContent.charts || {};
+    const alerts = spcContent.alerts || [];
 
     const currentStation = filters.station === 'all' ? 'All Stations' : filters.station;
 
     // Show loading state only on first load
-    if (loading && !lineStatus) {
+    if (loading && !spcData) {
         return (
             <div className="space-y-8 pb-10">
                 <div className="flex flex-col space-y-2">
@@ -80,8 +83,8 @@ export default function SPCDashboard() {
         <div className="space-y-8 pb-10">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex flex-col space-y-2">
-                    <h2 className="text-3xl font-bold tracking-tight text-foreground">SPC Analysis</h2>
-                    <p className="text-muted-foreground">Process stability monitoring for <span className="font-semibold text-foreground">{currentStation}</span>.</p>
+                    <h2 className="text-3xl 2xl:text-4xl 3xl:text-5xl font-bold tracking-tight text-foreground">SPC Analysis</h2>
+                    <p className="text-muted-foreground 2xl:text-lg">Process stability monitoring for <span className="font-semibold text-foreground">{currentStation}</span>.</p>
                 </div>
 
                 {/* Parameter Selector */}
@@ -205,7 +208,7 @@ export default function SPCDashboard() {
             </div>
 
             {/* Histogram and Pie Chart Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-2 3xl:grid-cols-4 gap-6">
                 {/* Histogram - Distribution Analysis */}
                 <Card className="border-border/60 shadow-sm bg-card/50 backdrop-blur-sm">
                     <CardHeader>
@@ -241,7 +244,7 @@ export default function SPCDashboard() {
                                             backgroundColor: 'hsl(var(--card))'
                                         }}
                                     />
-                                    <Bar dataKey="frequency" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
@@ -313,7 +316,7 @@ export default function SPCDashboard() {
                         {alerts.length > 0 ? (
                             alerts.map((alert, index) => (
                                 <li key={index} className="flex items-center justify-between p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                                    <span className="text-sm font-medium text-destructive-foreground">{alert.message}</span>
+                                    <span className="text-sm font-medium text-destructive">{alert.message}</span>
                                     <span className="text-xs text-muted-foreground">{alert.time} - {alert.station}</span>
                                 </li>
                             ))
