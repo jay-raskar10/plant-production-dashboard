@@ -21,6 +21,12 @@ dotenv.config();
  * @param {Function} next - Express next middleware function
  */
 export function authenticate(req, res, next) {
+    // Check if authentication is globally disabled for testing
+    if (process.env.AUTH_DISABLED === 'true') {
+        console.warn(`🕒 [TEST MODE] Skipping authentication for ${req.method} ${req.originalUrl}`);
+        return next();
+    }
+
     // Get API key from request header
     const apiKey = req.headers['x-api-key'];
 

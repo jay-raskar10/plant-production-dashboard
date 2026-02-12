@@ -4,6 +4,7 @@ import {
     generateLineStatus,
     generateStationDetails
 } from '../utils/mockDataGenerator.js';
+import { labviewService } from '../services/labviewService.js';
 import {
     validateLineStatus,
     validateStationStatus,
@@ -12,6 +13,8 @@ import {
 
 const router = express.Router();
 
+const USE_MOCK = process.env.USE_MOCK_DATA.trim() === 'true';
+
 /**
  * GET /api/meta
  * Get metadata for all dropdowns (plants, lines, stations, shifts)
@@ -19,7 +22,7 @@ const router = express.Router();
  */
 router.get('/meta', async (req, res) => {
     try {
-        const metadata = generateMetadata();
+        const metadata = USE_MOCK ? generateMetadata() : await labviewService.getMetadata();
 
         res.json({
             success: true,
@@ -50,7 +53,7 @@ router.get('/line_status', validateLineStatus, handleValidationErrors, async (re
             dateRange: req.query.dateRange || 'today'
         };
 
-        const lineStatus = generateLineStatus(filters);
+        const lineStatus = USE_MOCK ? generateLineStatus(filters) : await labviewService.getLineStatus(filters);
 
         res.json({
             success: true,
@@ -78,7 +81,7 @@ router.get('/station_status', validateStationStatus, handleValidationErrors, asy
         const dateRange = req.query.dateRange || 'today';
         const shift = req.query.shift || 'all';
 
-        const stationDetails = generateStationDetails(stationId);
+        const stationDetails = USE_MOCK ? generateStationDetails(stationId) : await labviewService.getStationDetails(stationId);
 
         res.json({
             success: true,

@@ -1,153 +1,90 @@
-# Detailed UI <-> API Data Mapping
+# Detailed UI <-> API Data Mapping (Production Ready)
 
-This document provides a 1-to-1 mapping of every data point visible on the current Dashboard UI to the required API JSON structure.
-
----
-
-## 0. Metadata / Navigation Queries (Dropdowns)
-**Location:** Sidebar / Navbar / Global Filters
-**Endpoint:** `GET /api/meta`
-*Ideally, this is fetched once on app load to populate the selectors.*
-
-| UI Component | Data Label | Data Type | Required API JSON Path | Value Example | Notes |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Plant Selector** | Plant List | Array | `plants` | `[{"id": "pune", "name": "Pune"}]` | |
-| **Line Selector** | Line List | Array | `lines` | `[{"id": "fcpv", "name": "FCPV", "plant_id": "pune"}]` | Filtered by selected Plant |
-| **Station Selector**| Station List | Array | `stations_meta` | `[{"id": "op10", "name": "OP-10", "line_id": "fcpv"}]` | Filtered by selected Line |
-| **Shift Selector** | Shift List | Array | `shifts` | `[{"id": "A", "name": "Shift A (06-14)"}]` | |
-
-### ⬇️ REQUIRED JSON FRAGMENT (Metadata)
-**Endpoint:** `GET /api/meta`
-
-```json
-{
-  "plants": [
-    { "id": "pune", "name": "Pune Plant" },
-    { "id": "chennai", "name": "Chennai Plant" }
-  ],
-  "lines": [
-    { "id": "fcpv", "name": "FCPV Line", "plant_id": "pune" },
-    { "id": "lacv", "name": "LACV Line", "plant_id": "pune" },
-    { "id": "compressor", "name": "Compressor Line", "plant_id": "chennai" }
-  ],
-  "stations_meta": [
-    { "id": "op10", "name": "OP-10", "line_id": "fcpv" },
-    { "id": "op20", "name": "OP-20", "line_id": "fcpv" },
-    { "id": "op10_lacv", "name": "OP-10", "line_id": "lacv" }
-  ],
-  "shifts": [
-    { "id": "A", "name": "Shift A (06:00-14:00)" },
-    { "id": "B", "name": "Shift B (14:00-22:00)" },
-    { "id": "C", "name": "Shift C (22:00-06:00)" }
-  ]
-}
-```
+This document provides a rock-solid contract between the UI and the LabVIEW API. All endpoints return data directly at the JSON root (no `success` or `data` wrappers).
 
 ---
 
-## 1. Production Dashboard (Overview)
-**File:** `src/components/dashboard/ProductionDashboard.jsx`
+## 0. Metadata / Navigation Queries
+**Endpoint:** `GET /api/meta` (Internal Fallback Active)
+*Note: Currently using hardcoded fallback in `FilterContext.jsx` as the live endpoint is in queue.*
 
-### A. Top KPI Ribbon
-| UI Component | Data Label | Data Type | Required API JSON Path | Value Example |
-| :--- | :--- | :--- | :--- | :--- |
-| **Output Card** | Total Output | Integer | `line_kpi.production.current` | `1250` |
-| | Target Output | Integer | `line_kpi.production.target` | `1400` |
-| | Trend Indicator | Float | `line_kpi.production.trend` | `2.4` |
-| **OEE Card** | Line OEE | Float (%) | `line_kpi.oee.value` | `85.5` |
-| | OEE Trend | Float | `line_kpi.oee.trend` | `1.2` |
-| **Rejection Card**| Rejections | Integer | `line_kpi.rejection.count` | `12` |
-| **Eff. Card** | Shift Efficiency | Float (%) | `line_kpi.efficiency.value` | `92.0` |
+| UI Component | Data Label | Data Type | JSON Path |
+| :--- | :--- | :--- | :--- |
+| **Plants** | Plant List | Array | `plants` |
+| **Lines** | Line List | Array | `lines` |
+| **Stations** | Station List | Array | `stations_meta` |
 
-### B. Production Velocity Chart & Downtime
-| UI Component | Data Label | Data Type | Required API JSON Path | Value Example |
-| :--- | :--- | :--- | :--- | :--- |
-| **Line Chart** | Output Array | Array | `charts.velocity` | `[{"time": "10:00", "output": 160, "target": 150}]` |
-| **Downtime** | Top Reasons | Array | `downtime.top_reasons` | `[{"reason": "Tool Change", "duration": 15}]` |
+---
 
-### C. Station Status Grid
-| UI Component | Data Label | Data Type | Required API JSON Path | Value Example |
-| :--- | :--- | :--- | :--- | :--- |
-| **Station Card** | Station List | Array | `stations` | `[{"id": "op10", "status": "running"}]` |
-
-### ⬇️ REQUIRED JSON FRAGMENT (Production)
+## 1. Production Overview
 **Endpoint:** `GET /api/line_status`
 
+| UI Component | Data Label | Data Type | JSON Path |
+| :--- | :--- | :--- | :--- |
+| **Output Card** | Total/Target | Object | `line_kpi.production` |
+| **OEE/Eff** | Metrics | Object | `line_kpi.oee`, `line_kpi.efficiency` |
+| **Velocity Chart**| Time-series | Array | `charts.velocity` |
+| **Stations Grid** | Status/CT | Array | `stations` |
+
+### ✅ RESPONSE STRUCTURE
 ```json
 {
   "line_kpi": {
-    "production": { "current": 1250, "target": 1400, "trend": 2.4 },
-    "oee": { "value": 85.5, "trend": 1.2 },
-    "rejection": { "count": 12 },
-    "efficiency": { "value": 92.0 }
+    "production": { "current": 1200, "target": 1400, "trend": 2.5 },
+    "oee": { "value": 85.5 },
+    "rejection": { "count": 15 },
+    "efficiency": { "value": 92.2 }
   },
   "charts": {
     "velocity": [
-      { "time": "06:00", "output": 120, "target": 150 },
-      { "time": "07:00", "output": 132, "target": 150 }
-    ]
-  },
-  "downtime": {
-    "top_reasons": [
-      { "reason": "Tool Change", "station": "OP-20", "duration": 15 },
-      { "reason": "No Material", "station": "OP-10", "duration": 45 }
+      { "time": "06:00", "output": 110, "target": 120 },
+      { "time": "07:00", "output": 125, "target": 120 },
+      { "time": "08:00", "output": 115, "target": 120 },
+      { "time": "09:00", "output": 130, "target": 120 },
+      { "time": "10:00", "output": 140, "target": 120 }
     ]
   },
   "stations": [
-    { "id": "op10", "name": "OP-10", "operator": "Auto", "status": "running", "produced": 450, "cycle_time": 45.2, "efficiency": 88 },
-    { "id": "op20", "name": "OP-20", "operator": "John", "status": "fault", "produced": 430, "cycle_time": 0, "efficiency": 75 }
+    { "id": "op10", "status": "running", "cycle_time": 45.2, "produced": 450 },
+    { "id": "op20", "status": "idle", "cycle_time": 0, "produced": 420 },
+    { "id": "op30", "status": "fault", "cycle_time": 42.1, "produced": 410 }
   ]
 }
 ```
 
 ---
 
-## 2. SPC Dashboard (Process Quality)
-**File:** `src/components/dashboard/SPCDashboard.jsx`
+## 2. SPC Analysis
+**Endpoint:** `GET /api/spc`
 
-### A. Capability Metrics (Cp/Cpk/Pp/Ppk)
-| UI Component | Data Label | Data Type | Required API JSON Path | Value Example |
-| :--- | :--- | :--- | :--- | :--- |
-| **Capability** | Cp, Cpk, Pp, Ppk | Object | `spc.metrics` | `{"cp": 1.67, "cpk": 1.52}` |
+| UI Component | Data Label | Data Type | JSON Path |
+| :--- | :--- | :--- | :--- |
+| **Metrics** | Cp, Cpk, etc. | Object | `spc.metrics` |
+| **Control Charts** | Mean/Range | Array | `spc.charts.control_points` |
+| **Histogram** | Probability | Array | `spc.charts.histogram` |
 
-### B. Charts (Control, Histogram, Pie)
-| UI Component | Data Label | Data Type | Required API JSON Path | Value Example |
-| :--- | :--- | :--- | :--- | :--- |
-| **Control Charts** | Points | Array | `spc.charts.control_points` | `[{"mean": 100.2, "range": 1.5}]` |
-| **Histogram** | Distribution | Array | `spc.charts.histogram` | `[{"range": "98-100", "count": 25}]` |
-| **Pie Chart** | Defects | Array | `spc.charts.defects` | `[{"name": "LVDT Fail", "value": 45}]` |
-
-### ⬇️ REQUIRED JSON FRAGMENT (SPC)
-**Endpoint:** `GET /api/line_status`
-
+### ✅ RESPONSE STRUCTURE
 ```json
 {
   "spc": {
-    "metrics": {
-      "cp": { "value": 1.67, "status": "Excellent" },
-      "cpk": { "value": 1.52 },
-      "pp": { "value": 1.58 },
-      "ppk": { "value": 1.28 }
-    },
+    "metrics": { "cp": { "value": 1.67 }, "cpk": { "value": 1.52 } },
     "charts": {
       "control_points": [
-         { "time": "14:30", "mean": 100.2, "range": 1.5, "ucl": 105, "lcl": 95, "cl": 100, "ucl_r": 3, "lcl_r": 0 }
+        { "time": "10:00", "mean": 10.4, "range": 0.2, "ucl": 10.8, "lcl": 10.0, "cl": 10.4 },
+        { "time": "10:15", "mean": 10.5, "range": 0.3, "ucl": 10.8, "lcl": 10.0, "cl": 10.4 },
+        { "time": "10:30", "mean": 10.3, "range": 0.1, "ucl": 10.8, "lcl": 10.0, "cl": 10.4 },
+        { "time": "10:45", "mean": 10.6, "range": 0.4, "ucl": 10.8, "lcl": 10.0, "cl": 10.4 },
+        { "time": "11:00", "mean": 10.4, "range": 0.2, "ucl": 10.8, "lcl": 10.0, "cl": 10.4 }
       ],
       "histogram": [
-        { "range": "94-96", "count": 5 },
-        { "range": "96-98", "count": 12 },
-        { "range": "98-100", "count": 40 },
-        { "range": "100-102", "count": 30 },
-        { "range": "102-104", "count": 10 }
-      ],
-      "defects": [
-         { "name": "LVDT Fail", "value": 45 },
-         { "name": "Camera Fail", "value": 30 }
+        { "range": "9.8-10.0", "count": 5 },
+        { "range": "10.0-10.2", "count": 25 },
+        { "range": "10.2-10.4", "count": 50 },
+        { "range": "10.4-10.6", "count": 35 },
+        { "range": "10.6-10.8", "count": 10 }
       ]
     },
-    "alerts": [
-      { "message": "Rule 1 Violation", "time": "14:15", "station": "OP-20" }
-    ]
+    "alerts": []
   }
 }
 ```
@@ -155,30 +92,44 @@ This document provides a 1-to-1 mapping of every data point visible on the curre
 ---
 
 ## 3. Station Analytics (Drill-down)
-**File:** `src/pages/StationAnalytics.jsx`
+**Endpoints:** `GET /api/station_details` + `GET /api/spc`
+*Note: This page uses dual-fetch to provide full visibility.*
 
-### A. View Data
-| UI Component | Data Label | Data Type | Required API JSON Path |
+| UI Tab | Feature | Source | JSON Path |
 | :--- | :--- | :--- | :--- |
-| **Graph View** | Trend | Array | `station_details.production_trend` |
-| **Table View** | Logs | Array | `station_details.logs` |
+| **Graph** | Prod. Trend | `station_details` | `production_trend` |
+| **Table** | Audit Logs | `station_details` | `logs` |
+| **SPC** | Control Charts| `spc` (filtered) | `spc.charts.control_points` |
 
-### ⬇️ REQUIRED JSON FRAGMENT (Station Details)
-**Endpoint:** `GET /api/station_status?id={station_id}`
-*Note: This might be a separate call or part of the main payload if small enough.*
-
+### ✅ RESPONSE STRUCTURE (`station_details`)
 ```json
 {
-  "station_details": {
-    "production_trend": [
-      { "time": "06:00", "output": 0 },
-      { "time": "08:00", "output": 120 },
-      { "time": "10:00", "output": 250 }
-    ],
-    "logs": [
-      { "timestamp": "10:31:00", "part_id": "PN-101", "value": 10.45, "status": "OK", "cycle_time": 45.2 },
-      { "timestamp": "10:32:00", "part_id": "PN-102", "value": 10.12, "status": "OK", "cycle_time": 44.8 }
-    ]
-  }
+  "production_trend": [
+    { "time": "06:00", "output": 110, "target": 120 },
+    { "time": "07:00", "output": 125, "target": 120 },
+    { "time": "08:00", "output": 115, "target": 120 },
+    { "time": "09:00", "output": 130, "target": 120 },
+    { "time": "10:00", "output": 140, "target": 120 }
+  ],
+  "logs": [
+    { "timestamp": "10:15:22", "part_id": "SN-001", "value": 10.42, "status": "OK", "cycle_time": 45.1 },
+    { "timestamp": "10:16:10", "part_id": "SN-002", "value": 10.45, "status": "OK", "cycle_time": 44.8 },
+    { "timestamp": "10:17:05", "part_id": "SN-003", "value": 9.98, "status": "NOT OK", "cycle_time": 45.5 },
+    { "timestamp": "10:18:00", "part_id": "SN-004", "value": 10.40, "status": "OK", "cycle_time": 45.2 },
+    { "timestamp": "10:18:45", "part_id": "SN-005", "value": 10.41, "status": "OK", "cycle_time": 44.9 }
+  ]
 }
 ```
+
+---
+
+## 4. API Call Examples (Query Filters)
+
+The frontend sends the following query parameters to filter data. The backend should handle these to return the correct subset of data.
+
+| Feature | Filter Pattern | Example URL |
+| :--- | :--- | :--- |
+| **Line Overview**| `plant`, `line`, `dateRange` | `/api/line_status?plant=pune&line=fcpv&dateRange=today` |
+| **SPC Analytics**| `viewMode`, `parameter` | `/api/spc?line=fcpv&viewMode=spc&parameter=opening-pressure` |
+| **Station Drill-down**| `id` (Station ID) | `/api/station_details?id=op10&shift=A` |
+| **Filtered SPC** | `station` | `/api/spc?station=op10&parameter=leak-rate` |
