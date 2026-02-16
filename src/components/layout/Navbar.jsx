@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useFilters } from '@/context/FilterContext';
-import { Check } from 'lucide-react';
+import { useDisplayMode } from '@/context/DisplayModeContext';
+import { Check, Monitor, Tv } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Navbar = () => {
     const { filters, updateFilter, metadata, metadataLoading } = useFilters();
+    const { isTV, manualTV, toggleTV, is4K } = useDisplayMode();
     const [tempStartDate, setTempStartDate] = useState(filters.startDate);
     const [tempEndDate, setTempEndDate] = useState(filters.endDate);
 
@@ -45,14 +47,14 @@ const Navbar = () => {
 
     if (metadataLoading) {
         return (
-            <header className="sticky top-0 z-30 w-full h-16 border-b border-border/60 bg-background/95 backdrop-blur-md flex items-center px-6 py-2">
+            <header className="sticky top-0 z-30 w-full h-16 border-b border-border bg-background flex items-center px-6 py-2">
                 <div className="text-sm text-muted-foreground">Loading filters...</div>
             </header>
         );
     }
 
     return (
-        <header className="sticky top-0 z-30 w-full h-16 border-b border-border/60 bg-background/95 backdrop-blur-md flex flex-wrap items-center px-6 py-2 gap-4 justify-between transition-all duration-300">
+        <header className="sticky top-0 z-30 w-full h-16 border-b border-border bg-background flex flex-wrap items-center px-6 py-2 gap-4 justify-between transition-all duration-300">
 
             {/* Global Filters Bar */}
             <div className="flex flex-wrap items-center gap-2 flex-1">
@@ -160,8 +162,28 @@ const Navbar = () => {
                 </div>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center pr-8">
+            {/* Right: Display Mode Toggle + Logo */}
+            <div className="flex items-center gap-3 pr-8">
+                {/* TV Mode Toggle */}
+                <button
+                    onClick={toggleTV}
+                    className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded border text-xs font-bold uppercase tracking-wider transition-all",
+                        isTV
+                            ? "bg-primary text-white border-primary"
+                            : "bg-muted text-muted-foreground border-border hover:bg-secondary hover:text-foreground"
+                    )}
+                    title={isTV ? 'Switch to Desktop mode' : 'Switch to TV/Kiosk mode (1.5× scale)'}
+                >
+                    {isTV ? <Tv className="h-4 w-4" /> : <Monitor className="h-4 w-4" />}
+                    {isTV ? 'TV' : 'Desktop'}
+                    {is4K && !manualTV && (
+                        <span className="text-[9px] opacity-70">AUTO</span>
+                    )}
+                </button>
+
+                <div className="h-6 w-px bg-border" />
+
                 <div className="flex items-center group cursor-default" title="Developed by Data Acquisition Technology">
                     <img
                         src="/DAT.svg"

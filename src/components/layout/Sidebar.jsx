@@ -13,7 +13,7 @@ import { useLocation, Link } from 'react-router-dom';
 const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
     <Link to={href} className="block relative">
         <div className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative overflow-hidden",
+            "flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 group relative overflow-hidden",
             active
                 ? "bg-primary/10 text-primary font-semibold"
                 : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
@@ -34,7 +34,7 @@ const SidebarItem = ({ icon: Icon, label, href, active, collapsed }) => (
             )}
 
             {collapsed && (
-                <div className="absolute left-16 bg-popover text-popover-foreground px-2 py-1 rounded-md text-sm shadow-xl invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all z-50 whitespace-nowrap border border-border/50 backdrop-blur-md">
+                <div className="absolute left-16 bg-popover text-popover-foreground px-2 py-1 rounded text-sm shadow-lg invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all z-50 whitespace-nowrap border border-border">
                     {label}
                 </div>
             )}
@@ -49,12 +49,12 @@ const Sidebar = () => {
     return (
         <aside
             className={cn(
-                "h-screen sticky top-0 bg-card border-r border-border z-40 flex flex-col transition-all duration-300 ease-in-out shadow-sm",
+                "h-screen sticky top-0 bg-card border-r border-border z-40 flex flex-col transition-all duration-300 ease-in-out",
                 collapsed ? "w-16" : "w-64"
             )}
         >
             {/* Brand Header */}
-            <div className="h-16 flex items-center border-b border-border/50 bg-background/50 backdrop-blur-sm transition-all duration-300">
+            <div className="h-16 flex items-center border-b border-border bg-background transition-all duration-300">
                 <div className={cn("flex items-center w-full transition-all duration-300 h-full", collapsed ? "justify-center" : "justify-start px-4")}>
                     {!collapsed ? (
                         <div className="animate-in fade-in duration-500">
@@ -88,7 +88,7 @@ const Sidebar = () => {
             </div>
 
             {/* Footer / User Profile */}
-            <div className="p-3 border-t border-border/50">
+            <div className="p-3 border-t border-border">
                 <Button
                     variant="ghost"
                     size="sm"

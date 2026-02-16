@@ -2,29 +2,21 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Download, Calendar, Activity, Table as TableIcon, LineChart as ChartIcon, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ArrowLeft, Download, Calendar, Activity, Table as TableIcon, LineChart as ChartIcon, AlertTriangle, RefreshCw, Loader2, Gauge, Clock, CheckCircle2 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { useFilters } from '@/context/FilterContext';
+import { useDisplayMode } from '@/context/DisplayModeContext';
 import { apiService } from '@/services/apiService';
 import { API_CONFIG } from '@/config/config';
 import { usePolling } from '@/hooks/usePolling';
 import ControlChart from '@/components/charts/ControlChart';
 import { cn } from "@/lib/utils";
 
-const MOCK_GRAPH_DATA = [
-    { time: '06:00', output: 0 },
-    { time: '08:00', output: 120 },
-    { time: '10:00', output: 250 },
-    { time: '12:00', output: 380 },
-    { time: '14:00', output: 450 },
-    { time: '16:00', output: 600 },
-    { time: '18:00', output: 780 },
-];
-
 export default function StationAnalytics() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { filters } = useFilters();
+    const { chartFontSize, chartStrokeWidth, chartDotRadius, chartActiveDotRadius, chartHeight } = useDisplayMode();
     const [viewMode, setViewMode] = useState('graph'); // 'graph', 'table', 'spc' — LOCAL state
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
@@ -109,6 +101,15 @@ export default function StationAnalytics() {
     const spcPoints = spcContent.charts?.control_points || spcContent.control_points || [];
     const spcLimits = spcContent.charts?.control_points?.[0] || spcContent.control_points?.[0] || {};
 
+    // Compute station-level KPIs from available data
+    const totalOutput = graphData.length > 0 ? graphData[graphData.length - 1]?.output || 0 : 0;
+    const okCount = tableLogs.filter(l => l.status === 'OK').length;
+    const totalLogs = tableLogs.length;
+    const yieldRate = totalLogs > 0 ? ((okCount / totalLogs) * 100).toFixed(1) : '—';
+    const avgCycleTime = totalLogs > 0
+        ? (tableLogs.reduce((sum, l) => sum + (parseFloat(l.cycle_time) || 0), 0) / totalLogs).toFixed(1)
+        : '—';
+
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
@@ -122,35 +123,35 @@ export default function StationAnalytics() {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-md border border-border/50">
+                    <div className="flex items-center text-sm text-muted-foreground bg-muted px-3 py-1.5 rounded border border-border">
                         <Calendar className="mr-2 h-4 w-4" />
                         {filters.dateRange} | {filters.shift}
                     </div>
 
                     {/* Local View Mode Toggle */}
-                    <div className="bg-secondary p-1 rounded-lg flex items-center">
+                    <div className="bg-secondary p-1 rounded flex items-center">
                         <button
                             onClick={() => setViewMode('graph')}
-                            className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'graph' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex items-center px-3 py-1.5 text-sm font-medium rounded transition-all ${viewMode === 'graph' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <Activity className="h-4 w-4 mr-2" /> Graph
                         </button>
                         <button
                             onClick={() => setViewMode('table')}
-                            className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'table' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex items-center px-3 py-1.5 text-sm font-medium rounded transition-all ${viewMode === 'table' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <TableIcon className="h-4 w-4 mr-2" /> Table
                         </button>
                         <button
                             onClick={() => setViewMode('spc')}
-                            className={`flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'spc' ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                            className={`flex items-center px-3 py-1.5 text-sm font-medium rounded transition-all ${viewMode === 'spc' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                         >
                             <ChartIcon className="h-4 w-4 mr-2" /> SPC
                         </button>
                     </div>
 
-                    {/* Export Button — connected to backend */}
-                    <Button onClick={handleExport} disabled={exporting} variant="outline" className="border-primary/20 hover:bg-primary/5">
+                    {/* Export Button */}
+                    <Button onClick={handleExport} disabled={exporting} variant="outline" className="border-border hover:bg-muted">
                         {exporting ? (
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         ) : (
@@ -161,17 +162,61 @@ export default function StationAnalytics() {
 
                     {/* Export Status */}
                     {exportMessage && (
-                        <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border border-border/50 animate-in fade-in duration-300">
+                        <span className="text-xs text-muted-foreground bg-muted px-3 py-1.5 rounded border border-border animate-in fade-in duration-300">
                             {exportMessage}
                         </span>
                     )}
                 </div>
             </div>
 
+            {/* Station KPI Strip */}
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                <Card className={cn("border-l-4", totalOutput > 0 ? 'border-l-success' : 'border-l-muted-foreground')}>
+                    <CardContent className="p-5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Output</p>
+                        <div className="text-4xl font-bold font-mono tabular-nums mt-1">{totalOutput}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Cumulative today</p>
+                    </CardContent>
+                </Card>
+                <Card className={cn("border-l-4", parseFloat(yieldRate) >= 95 ? 'border-l-success' : parseFloat(yieldRate) >= 85 ? 'border-l-warning' : 'border-l-destructive')}>
+                    <CardContent className="p-5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">First Pass Yield</p>
+                        <div className="text-4xl font-bold font-mono tabular-nums mt-1">{yieldRate}%</div>
+                        <div className="flex items-center gap-1 mt-1">
+                            <CheckCircle2 className="h-3 w-3 text-success" />
+                            <span className="text-xs text-muted-foreground">{okCount}/{totalLogs} passed</span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-primary">
+                    <CardContent className="p-5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Avg Cycle Time</p>
+                        <div className="flex items-baseline gap-1 mt-1">
+                            <span className="text-4xl font-bold font-mono tabular-nums">{avgCycleTime}</span>
+                            <span className="text-sm text-muted-foreground">sec</span>
+                        </div>
+                        <div className="flex items-center gap-1 mt-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">across {totalLogs} parts</span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-warning">
+                    <CardContent className="p-5">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rejections</p>
+                        <div className="text-4xl font-bold font-mono tabular-nums mt-1">{totalLogs - okCount}</div>
+                        <div className="flex items-center gap-1 mt-1">
+                            <AlertTriangle className="h-3 w-3 text-warning" />
+                            <span className="text-xs text-muted-foreground">{totalLogs > 0 ? ((totalLogs - okCount) / totalLogs * 100).toFixed(1) : 0}% reject rate</span>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
             {/* Content */}
-            <Card className="h-full min-h-[500px] border-border/60 shadow-sm">
+            <Card className="h-full min-h-[500px] border border-border">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
+                    <CardTitle className="flex items-center gap-2 text-base font-semibold">
                         {viewMode === 'graph' && <><Activity className="h-5 w-5 text-primary" /> Production Trend</>}
                         {viewMode === 'table' && <><TableIcon className="h-5 w-5 text-primary" /> Production Logs</>}
                         {viewMode === 'spc' && <><ChartIcon className="h-5 w-5 text-primary" /> SPC Control Charts</>}
@@ -179,24 +224,31 @@ export default function StationAnalytics() {
                 </CardHeader>
                 <CardContent>
                     {viewMode === 'graph' && (
-                        <div className="h-[400px] w-full mt-4">
+                        <div className={`${chartHeight} w-full mt-4`}>
                             {graphData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={graphData}>
-                                        <defs>
-                                            <linearGradient id="colorOutput2" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
+                                    <LineChart data={graphData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                                        <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
+                                        <XAxis dataKey="time" stroke="hsl(var(--muted-foreground))" fontSize={chartFontSize} tickLine={false} axisLine={false} dy={10} />
+                                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={chartFontSize} tickLine={false} axisLine={false} />
                                         <Tooltip
-                                            contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'hsl(var(--card))' }}
+                                            contentStyle={{
+                                                borderRadius: '4px',
+                                                border: '1px solid hsl(var(--border))',
+                                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                                backgroundColor: 'hsl(var(--card))',
+                                                fontSize: chartFontSize
+                                            }}
                                         />
-                                        <Area type="monotone" dataKey="output" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorOutput2)" />
-                                    </AreaChart>
+                                        <Line
+                                            type="linear"
+                                            dataKey="output"
+                                            stroke="hsl(var(--primary))"
+                                            strokeWidth={chartStrokeWidth}
+                                            dot={{ r: chartDotRadius, fill: "hsl(var(--primary))" }}
+                                            activeDot={{ r: chartActiveDotRadius }}
+                                        />
+                                    </LineChart>
                                 </ResponsiveContainer>
                             ) : (
                                 <div className="h-full w-full flex items-center justify-center text-muted-foreground">
@@ -207,41 +259,45 @@ export default function StationAnalytics() {
                     )}
 
                     {viewMode === 'table' && (
-                        <div className="border rounded-md mt-4 overflow-x-auto">
+                        <div className="border rounded mt-4 overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-muted/50 border-b">
+                                <thead className="bg-slate-800 text-white sticky top-0 z-10">
                                     <tr>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Timestamp</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Plant</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Line</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Station</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Shift</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Part ID</th>
-                                        <th className="h-10 px-4 text-right font-medium text-muted-foreground whitespace-nowrap">Value</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Status</th>
-                                        <th className="h-10 px-4 text-right font-medium text-muted-foreground whitespace-nowrap">Cycle Time</th>
-                                        <th className="h-10 px-4 text-left font-medium text-muted-foreground whitespace-nowrap">Operator</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Timestamp</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Plant</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Line</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Station</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Shift</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Part ID</th>
+                                        <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Value</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Status</th>
+                                        <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Cycle Time</th>
+                                        <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Operator</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {tableLogs.map((log, i) => (
-                                        <tr key={log.id || i} className="border-b transition-colors hover:bg-muted/50">
-                                            <td className="p-4 whitespace-nowrap">{log.timestamp}</td>
+                                        <tr key={log.id || i} className={cn(
+                                            'border-b transition-colors hover:bg-muted/50',
+                                            log.status !== 'OK' && 'bg-destructive/5',
+                                            log.status === 'OK' && i % 2 === 1 && 'bg-muted/20'
+                                        )}>
+                                            <td className="p-4 whitespace-nowrap font-mono tabular-nums text-xs">{log.timestamp}</td>
                                             <td className="p-4 whitespace-nowrap">{log.plant || filters.plant}</td>
                                             <td className="p-4 whitespace-nowrap">{log.line || filters.line}</td>
-                                            <td className="p-4 whitespace-nowrap">{log.station || id}</td>
+                                            <td className="p-4 whitespace-nowrap font-medium">{log.station || id}</td>
                                             <td className="p-4 whitespace-nowrap">{log.shift || filters.shift}</td>
-                                            <td className="p-4 whitespace-nowrap">{log.part_id}</td>
-                                            <td className="p-4 text-right font-mono">{log.value}</td>
+                                            <td className="p-4 whitespace-nowrap font-mono text-xs">{log.part_id}</td>
+                                            <td className="p-4 text-right font-mono tabular-nums">{log.value}</td>
                                             <td className="p-4">
                                                 <span className={cn(
-                                                    "font-medium px-2 py-0.5 rounded-full text-xs",
+                                                    "font-bold px-2 py-0.5 rounded text-xs uppercase",
                                                     log.status === 'OK' ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
                                                 )}>
-                                                    {log.status}
+                                                    {log.status !== 'OK' && '⚠ '}{log.status}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-right whitespace-nowrap">{log.cycle_time}s</td>
+                                            <td className="p-4 text-right whitespace-nowrap font-mono tabular-nums">{log.cycle_time}s</td>
                                             <td className="p-4 whitespace-nowrap">{log.operator}</td>
                                         </tr>
                                     ))}
