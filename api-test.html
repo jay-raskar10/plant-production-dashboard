@@ -62,6 +62,7 @@
 
     <script>
         const API_BASE = 'http://localhost:5000';
+        const API_KEY = 'fd9dee35c3ed17a128dae6b91d6d24bd1bcaa285dbfe12b4a6d5cb45a4b60d9d'; // From your .env
         const resultDiv = document.getElementById('result');
 
         function showResult(message, type = 'info') {
@@ -72,7 +73,9 @@
         async function testMeta() {
             showResult('⏳ Testing /api/meta...', 'info');
             try {
-                const response = await fetch(`${API_BASE}/api/meta`);
+                const response = await fetch(`${API_BASE}/api/meta`, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
@@ -88,7 +91,9 @@
         async function testLineStatus() {
             showResult('⏳ Testing /api/line_status...', 'info');
             try {
-                const response = await fetch(`${API_BASE}/api/line_status?plant=pune&line=fcpv`);
+                const response = await fetch(`${API_BASE}/api/line_status?plant=pune&line=fcpv`, {
+                    headers: { 'X-API-Key': API_KEY }
+                });
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
@@ -104,7 +109,7 @@
         async function testHealth() {
             showResult('⏳ Testing /health...', 'info');
             try {
-                const response = await fetch(`${API_BASE}/health`);
+                const response = await fetch(`${API_BASE}/health`); // Health doesn't need auth
                 const data = await response.json();
                 
                 if (response.ok && data.status === 'ok') {

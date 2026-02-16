@@ -109,14 +109,19 @@ export const apiService = {
      * @param {Object} filters - { plant, line, station, shift, dateRange }
      */
     getLineStatus: async (filters = {}) => {
-        const params = new URLSearchParams(filters);
-        const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.LINE_STATUS}?${params}`;
+        return retryWithBackoff(async () => {
+            const params = new URLSearchParams(filters);
+            const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.LINE_STATUS}?${params}`;
 
-        const response = await fetchWithTimeout(url);
-        const json = await response.json();
+            const response = await fetchWithTimeout(url);
+            const json = await response.json();
 
-        // Return direct JSON as LabVIEW API doesn't use success/data wrapper
-        return json;
+            if (!json.success) {
+                throw new ApiError('Failed to fetch line status', response.status, json);
+            }
+
+            return json.data;
+        });
     },
 
     /**
@@ -131,27 +136,76 @@ export const apiService = {
             const response = await fetchWithTimeout(url);
             const json = await response.json();
 
-            // Return direct JSON result
-            return json;
+            if (!json.success) {
+                throw new ApiError('Failed to fetch station details', response.status, json);
+            }
+
+            return json.data;
         });
     },
 
     /**
-     * Get SPC data
+     * Get SPC data (extracted from line_status endpoint)
      * @param {Object} filters - { plant, line, station, shift, dateRange, parameter }
      */
     getSPCData: async (filters = {}) => {
         return retryWithBackoff(async () => {
             const params = new URLSearchParams(filters);
-            const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.SPC}?${params}`;
+            const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.LINE_STATUS}?${params}`;
             console.log('📡 Fetching SPC:', url);
 
             const response = await fetchWithTimeout(url);
             const json = await response.json();
 
-            // Return direct JSON result
-            return json;
+            if (!json.success) {
+                throw new ApiError('Failed to fetch SPC data', response.status, json);
+            }
+
+            // SPC data is nested inside the line_status response
+            return json.data;
         });
+    },
+
+    /**
+     * Export Report — triggers a download from the backend
+     * @param {Object} filters - { plant, line, station, shift, dateRange }
+     * @param {string} reportType - 'graph' | 'table' | 'spc'
+     */
+    exportReport: async (filters = {}, reportType = 'table') => {
+        const params = new URLSearchParams({ ...filters, reportType });
+        const url = `${API_CONFIG.BASE_URL}${ENDPOINTS.EXPORT}?${params}`;
+        console.log('📥 Export request:', url);
+
+        const response = await fetchWithTimeout(url);
+        const contentType = response.headers.get('content-type');
+
+        // If the response is JSON, it means mock mode or an error
+        if (contentType && contentType.includes('application/json')) {
+            const json = await response.json();
+            return { success: false, message: json.message || 'Export not available' };
+        }
+
+        // Otherwise, trigger file download
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+
+        // Try to get filename from Content-Disposition header
+        const disposition = response.headers.get('content-disposition');
+        let filename = `report_${reportType}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        if (disposition) {
+            const match = disposition.match(/filename="?(.+)"?/);
+            if (match) filename = match[1];
+        }
+
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+
+        return { success: true, message: 'Download started' };
     },
 
     /**

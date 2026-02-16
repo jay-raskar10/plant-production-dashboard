@@ -99,4 +99,59 @@ router.get('/station_status', validateStationStatus, handleValidationErrors, asy
     }
 });
 
+/**
+ * GET /api/export
+ * Request an Excel report from LabVIEW based on current filters and view mode
+ * Query params: plant, line, station, shift, dateRange, reportType (graph|table|spc)
+ */
+router.get('/export', async (req, res) => {
+    try {
+        const filters = {
+            plant: req.query.plant || 'pune',
+            line: req.query.line || 'fcpv',
+            station: req.query.station || 'all',
+            shift: req.query.shift || 'all',
+            dateRange: req.query.dateRange || 'today'
+        };
+        const reportType = req.query.reportType || 'table';
+
+        if (USE_MOCK) {
+            // In mock mode, LabVIEW isn't available — return a placeholder response
+            return res.status(200).json({
+                success: false,
+                message: 'Export is not available in mock mode. Connect to LabVIEW to generate reports.',
+                filters,
+                reportType,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Proxy to LabVIEW — stream the file back to the client
+        const labviewResponse = await labviewService.exportReport(filters, reportType);
+
+        // Forward LabVIEW response headers
+        const contentType = labviewResponse.headers.get('content-type');
+        const contentDisposition = labviewResponse.headers.get('content-disposition');
+
+        res.setHeader('Content-Type', contentType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        if (contentDisposition) {
+            res.setHeader('Content-Disposition', contentDisposition);
+        } else {
+            const filename = `report_${reportType}_${filters.line}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        }
+
+        // Stream the file body
+        const arrayBuffer = await labviewResponse.arrayBuffer();
+        res.send(Buffer.from(arrayBuffer));
+
+    } catch (err) {
+        res.status(500).json({
+            success: false,
+            error: err.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 export default router;

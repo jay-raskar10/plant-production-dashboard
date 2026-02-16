@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Download, Calendar, Activity, Table as TableIcon, LineChart as ChartIcon, FileText, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, Calendar, Activity, Table as TableIcon, LineChart as ChartIcon, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFilters } from '@/context/FilterContext';
 import { apiService } from '@/services/apiService';
@@ -25,12 +25,17 @@ export default function StationAnalytics() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { filters } = useFilters();
-    const [viewMode, setViewMode] = useState('graph'); // 'graph', 'table', 'spc'
+    const [viewMode, setViewMode] = useState('graph'); // 'graph', 'table', 'spc' — LOCAL state
+    const [exporting, setExporting] = useState(false);
+    const [exportMessage, setExportMessage] = useState('');
 
     // Fetch station details with polling
     const fetchStationDetails = React.useCallback(() => {
-        return apiService.getStationDetails(id, filters);
-    }, [id, filters]);
+        return apiService.getStationDetails(id, {
+            dateRange: filters.dateRange,
+            shift: filters.shift
+        });
+    }, [id, filters.dateRange, filters.shift]);
 
     const { data: stationData, error, loading } = usePolling(
         fetchStationDetails,
@@ -50,8 +55,25 @@ export default function StationAnalytics() {
         API_CONFIG.POLLING_INTERVAL
     );
 
-    const handleExport = () => {
-        alert("Exporting report for " + id + "...");
+    // Export handler — now wired to the real backend route
+    const handleExport = async () => {
+        setExporting(true);
+        setExportMessage('');
+        try {
+            const result = await apiService.exportReport(
+                { plant: filters.plant, line: filters.line, station: id, shift: filters.shift, dateRange: filters.dateRange },
+                viewMode
+            );
+            if (!result.success) {
+                setExportMessage(result.message);
+                setTimeout(() => setExportMessage(''), 4000);
+            }
+        } catch (error) {
+            setExportMessage('Export failed: ' + error.message);
+            setTimeout(() => setExportMessage(''), 4000);
+        } finally {
+            setExporting(false);
+        }
     };
 
     // Show loading state
@@ -105,6 +127,7 @@ export default function StationAnalytics() {
                         {filters.dateRange} | {filters.shift}
                     </div>
 
+                    {/* Local View Mode Toggle */}
                     <div className="bg-secondary p-1 rounded-lg flex items-center">
                         <button
                             onClick={() => setViewMode('graph')}
@@ -126,9 +149,22 @@ export default function StationAnalytics() {
                         </button>
                     </div>
 
-                    <Button onClick={handleExport} variant="outline" className="border-primary/20 hover:bg-primary/5">
-                        <Download className="mr-2 h-4 w-4" /> Export Report
+                    {/* Export Button — connected to backend */}
+                    <Button onClick={handleExport} disabled={exporting} variant="outline" className="border-primary/20 hover:bg-primary/5">
+                        {exporting ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Download className="mr-2 h-4 w-4" />
+                        )}
+                        {exporting ? 'Exporting...' : 'Export Report'}
                     </Button>
+
+                    {/* Export Status */}
+                    {exportMessage && (
+                        <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md border border-border/50 animate-in fade-in duration-300">
+                            {exportMessage}
+                        </span>
+                    )}
                 </div>
             </div>
 

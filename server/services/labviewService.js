@@ -105,6 +105,51 @@ class LabviewService {
             throw new Error(`Failed to fetch metadata from LabVIEW: ${error.message}`);
         }
     }
+
+    /**
+     * Export Report via LabVIEW
+     * Requests LabVIEW to generate an Excel file based on current filters and report type.
+     * @param {Object} filters - { plant, line, station, shift, dateRange }
+     * @param {string} reportType - 'graph' | 'table' | 'spc'
+     * @returns {Promise<Response>} Raw fetch response (for streaming the file)
+     */
+    async exportReport(filters, reportType) {
+        const controller = new AbortController();
+        const id = setTimeout(() => controller.abort(), 30000); // 30s timeout for exports
+
+        const params = new URLSearchParams({
+            ...filters,
+            reportType
+        });
+
+        const url = `${this.baseURL}/api/export?${params.toString()}`;
+        console.log(`📡 [LabviewService] Export request: ${url}`);
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                },
+                signal: controller.signal
+            });
+
+            clearTimeout(id);
+
+            if (!response.ok) {
+                const errorText = await response.text().catch(() => 'Unknown error');
+                throw new Error(`Export failed with status ${response.status}: ${errorText}`);
+            }
+
+            return response;
+        } catch (error) {
+            clearTimeout(id);
+            if (error.name === 'AbortError') {
+                throw new Error('Export request timed out after 30s');
+            }
+            logError(error, { context: 'LabviewService.exportReport', filters, reportType });
+            throw new Error(`Failed to export report from LabVIEW: ${error.message}`);
+        }
+    }
 }
 
 export const labviewService = new LabviewService();

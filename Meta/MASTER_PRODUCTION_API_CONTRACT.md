@@ -22,8 +22,12 @@
 
 ### Data Format
 - **Root Level**: Data is returned directly at the JSON root.
-- **Naming**: `snake_case` (e.g., `line_kpi`, `produced_count`).
 - **Timestamps**: ISO 8601 UTC (e.g., `2026-02-12T10:30:00.000Z`).
+
+### Naming Convention
+- **JSON keys**: `snake_case` (e.g., `line_kpi`, `cycle_time`) - *Optimized for LabVIEW compatibility.*
+- **URL paths**: `kebab-case` (e.g., `/line-status`, `/station-analytics`).
+- **Query params**: `camelCase` (e.g., `dateRange`, `stationId`).
 
 ### Base URL
 ```
@@ -93,7 +97,8 @@ Errors should return a standard status code and a descriptive message.
   },
   "stations": [
     { "id": "op10", "status": "running", "cycle_time": 45.2, "produced": 450 },
-    { "id": "op20", "status": "idle", "cycle_time": 0, "produced": 420 }
+    { "id": "op20", "status": "idle", "cycle_time": 0, "produced": 420 },
+    { "id": "op30", "status": "fault", "cycle_time": 42.1, "produced": 410 }
   ]
 }
 ```
@@ -125,9 +130,12 @@ Errors should return a standard status code and a descriptive message.
       "histogram": [
         { "range": "9.8-10.0", "count": 5 },
         { "range": "10.0-10.2", "count": 25 },
-        { "range": "10.2-10.4", "count": 50 }
+        { "range": "10.2-10.4", "count": 50 },
+        { "range": "10.4-10.6", "count": 35 },
+        { "range": "10.6-10.8", "count": 10 }
       ]
-    }
+    },
+    "alerts": []
   }
 }
 ```
@@ -139,7 +147,7 @@ Errors should return a standard status code and a descriptive message.
 
 | UI Element | Data Path | Example Value |
 | :--- | :--- | :--- |
-| **Trend Graph** | `production_trend` | `[{"time": "10:00", "output": 120}]` |
+| **Trend Graph**| `production_trend` | `[{"time": "10:00", "output": 120}]` |
 | **Table Logs** | `logs` | `[{"part_id": "SN123", "status": "OK"}]` |
 
 #### ✅ Payload Sample

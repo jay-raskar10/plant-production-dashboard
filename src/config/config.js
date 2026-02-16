@@ -10,8 +10,9 @@ export const API_CONFIG = {
 export const ENDPOINTS = {
     META: '/api/meta',
     LINE_STATUS: '/api/line_status',
-    STATION_DETAILS: '/api/station_details',
-    SPC: '/api/spc'
+    STATION_DETAILS: '/api/station_status',
+    SPC: '/api/spc',
+    EXPORT: '/api/export'
 };
 
 // Debug: Log configuration on load

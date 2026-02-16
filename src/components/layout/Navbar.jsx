@@ -147,7 +147,7 @@ const Navbar = () => {
 
                 <div className="h-6 w-px bg-border mx-1 hidden md:block" />
 
-                {/* View Mode Selector - Highlighted */}
+                {/* Page Selector: Production vs SPC */}
                 <div className="bg-primary/10 rounded-md p-0.5">
                     <Select
                         value={filters.viewMode}
