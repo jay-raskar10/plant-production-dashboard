@@ -47,10 +47,10 @@ const generateTrend = (seed = 0) => {
 // Generate KPI data with realistic values
 export const generateLineKPI = (filters = {}) => {
   const seed = Date.now() / 10000; // Changes slowly over time
-  
+
   const targetProduction = 1400;
   const currentProduction = Math.floor(randomInRange(1100, 1450, seed));
-  
+
   return {
     production: {
       current: currentProduction,
@@ -71,24 +71,40 @@ export const generateLineKPI = (filters = {}) => {
 };
 
 // Generate time-series data for velocity chart
-export const generateVelocityChart = (hours = 12) => {
+export const generateVelocityChart = (hoursInput = 12) => {
   const data = [];
   const now = new Date();
   const targetPerHour = 120;
-  
-  for (let i = hours; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+
+  let count = hoursInput;
+  let intervalMin = 60; // default 1 hour
+
+  const size = process.env.MOCK_DATA_SIZE || 'normal';
+  if (size === 'medium') {
+    count = 100;
+    intervalMin = 1;
+  }
+  else if (size === 'large') {
+    count = 1000;
+    intervalMin = 5;
+  } else if (size === 'xl') {
+    count = 10000;
+    intervalMin = 1;
+  }
+
+  for (let i = count; i >= 0; i--) {
+    const time = new Date(now.getTime() - i * intervalMin * 60 * 1000);
     const hour = time.getHours();
     const minute = time.getMinutes();
     const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-    
+
     data.push({
       time: timeStr,
       output: Math.floor(randomInRange(90, 150, i)),
       target: targetPerHour
     });
   }
-  
+
   return data;
 };
 
@@ -102,7 +118,7 @@ export const generateDowntimeReasons = () => {
     'Setup Time',
     'Operator Break'
   ];
-  
+
   return reasons.slice(0, 3).map((reason, idx) => ({
     reason,
     station: `OP-${(idx + 1) * 10}`,
@@ -114,19 +130,19 @@ export const generateDowntimeReasons = () => {
 export const generateStations = (lineId = 'fcpv') => {
   const statuses = ['running', 'idle', 'fault'];
   const operators = ['Auto', 'John', 'Sarah', 'Mike', 'Auto'];
-  
+
   const stationsForLine = {
     fcpv: ['op10', 'op20', 'op30'],
     lacv: ['op10_lacv', 'op20_lacv'],
     compressor: ['op10_comp']
   };
-  
+
   const stationIds = stationsForLine[lineId] || stationsForLine.fcpv;
-  
+
   return stationIds.map((id, idx) => {
     const status = idx === 1 ? 'fault' : (idx === 2 ? 'idle' : 'running');
     const cycleTime = status === 'running' ? randomInRange(40, 50, idx) : 0;
-    
+
     return {
       id,
       name: id.toUpperCase().replace('_', ' '),
@@ -140,7 +156,7 @@ export const generateStations = (lineId = 'fcpv') => {
 };
 
 // Generate SPC control chart data
-export const generateSPCControlPoints = (count = 20) => {
+export const generateSPCControlPoints = (limitOverride = null) => {
   const data = [];
   const now = new Date();
   const target = 100;
@@ -149,20 +165,41 @@ export const generateSPCControlPoints = (count = 20) => {
   const cl = 100;
   const ucl_r = 3;
   const lcl_r = 0;
-  
+
+  // Determine data size based on env var or override
+  let count = 20; // Default 'normal'
+  const size = process.env.MOCK_DATA_SIZE || 'normal';
+
+  if (limitOverride) {
+    count = limitOverride;
+  } else if (size === 'large') {
+    count = 10000;
+  } else if (size === 'xl') {
+    count = 100000;
+  } else if (size === 'normal') {
+    count = 20;
+  }
+
+  // Adjust time interval based on count to keep data within reasonable recent timeframe
+  // For large datasets, we might need smaller intervals or span longer time
+  // Let's keep it simple: 10k points * 1 min = ~7 days. 100k points * 1 min = ~70 days.
+  const intervalMinutes = count > 1000 ? 1 : 30;
+
   for (let i = count; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 30 * 60 * 1000); // 30-min intervals
+    const time = new Date(now.getTime() - i * intervalMinutes * 60 * 1000);
     const hour = time.getHours();
     const minute = time.getMinutes();
+    // For large datasets, include date in label if needed, but for now keeping HH:MM
+    // To distinguish days in large datasets, might need full date, but UI might not handle it well yet.
     const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-    
+
     // Occasionally generate out-of-control points
-    const isOutOfControl = randomInRange(0, 1, i) > 0.9;
+    const isOutOfControl = randomInRange(0, 1, i) > 0.99; // Lower probability for large datasets to avoid too many alerts?
     let mean = target + randomInRange(-4, 4, i);
     if (isOutOfControl) {
       mean = randomInRange(0, 1, i + 100) > 0.5 ? ucl + 2 : lcl - 2;
     }
-    
+
     data.push({
       time: timeStr,
       mean: Number(mean.toFixed(2)),
@@ -174,7 +211,7 @@ export const generateSPCControlPoints = (count = 20) => {
       lcl_r
     });
   }
-  
+
   return data;
 };
 
@@ -223,7 +260,7 @@ export const generateDefects = () => {
 export const generateSPCAlerts = () => {
   const alerts = [];
   const hasAlert = randomInRange(0, 1, Date.now()) > 0.7;
-  
+
   if (hasAlert) {
     alerts.push({
       message: 'Rule 1 Violation: Point beyond control limit',
@@ -231,7 +268,7 @@ export const generateSPCAlerts = () => {
       station: 'OP-20'
     });
   }
-  
+
   return alerts;
 };
 
@@ -249,7 +286,7 @@ export const generateLineStatus = (filters = {}) => {
     spc: {
       metrics: generateSPCMetrics(),
       charts: {
-        control_points: generateSPCControlPoints(20),
+        control_points: generateSPCControlPoints(), // No arg means use env var logic
         histogram: generateHistogram(),
         defects: generateDefects()
       },
@@ -262,20 +299,20 @@ export const generateLineStatus = (filters = {}) => {
 export const generateStationDetails = (stationId) => {
   const productionTrend = [];
   const now = new Date();
-  
+
   // Generate 24 hours of production trend
   for (let i = 24; i >= 0; i--) {
     const time = new Date(now.getTime() - i * 60 * 60 * 1000);
     const hour = time.getHours();
     const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-    
+
     productionTrend.push({
       time: timeStr,
       output: Math.floor(randomInRange(0, 500, i)),
       cycle_time: Number(randomInRange(40, 55, i + 100).toFixed(1))
     });
   }
-  
+
   // Generate recent logs
   const logs = [];
   for (let i = 0; i < 50; i++) {
@@ -284,7 +321,7 @@ export const generateStationDetails = (stationId) => {
     const minute = time.getMinutes();
     const second = time.getSeconds();
     const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:${second.toString().padStart(2, '0')}`;
-    
+
     logs.push({
       timestamp: timeStr,
       part_id: `PN-${10000 + i}`,
@@ -293,7 +330,7 @@ export const generateStationDetails = (stationId) => {
       cycle_time: Number(randomInRange(40, 50, i + 200).toFixed(1))
     });
   }
-  
+
   return {
     station_details: {
       production_trend: productionTrend,

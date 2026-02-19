@@ -373,6 +373,7 @@ Get complete line status including production KPIs, charts, and station statuses
 | `station` | string | No | `"all"` | `"all"`, `"OP10"`, `"OP20"`, `"OP30"`, `"OP50"`, `"OP60"`, `"OP80"` | Filter by station |
 | `shift` | string | No | `"all"` | `"all"`, `"A"`, `"B"`, `"C"` | Filter by shift |
 | `dateRange` | string | No | `"today"` | `"today"`, `"week"`, `"month"`, or `"YYYY-MM-DD"` | Date range |
+| `resolution` | string | No | `"raw"` | `"raw"`, `"hour"`, `"shift"`, `"day"`, `"month"` | **NEW:** Data aggregation level |
 
 **Validation Rules:**
 - `plant`: Must match existing plant ID (case-insensitive)
@@ -418,25 +419,6 @@ Get complete line status including production KPIs, charts, and station statuses
         "firstPassYield": 98.0
       }
     },
-    "charts": {
-      "velocity": [
-        {
-          "time": "2024-01-01T06:00:00.000Z",
-          "output": 110,
-          "target": 120
-        },
-        {
-          "time": "2024-01-01T07:00:00.000Z",
-          "output": 125,
-          "target": 120
-        },
-        {
-          "time": "2024-01-01T08:00:00.000Z",
-          "output": 115,
-          "target": 120
-        }
-      ]
-    },
     "downtime": {
       "totalMinutes": 45,
       "topReasons": [
@@ -452,6 +434,17 @@ Get complete line status including production KPIs, charts, and station statuses
           "duration": 15,
           "unit": "minutes"
         }
+      ]
+    },
+    "charts": {
+      "velocity": [
+        {
+          "time_label": "06:00",  // Changed from "time" to supports dynamic labels
+          "timestamp": "2024-01-01T06:00:00.000Z",
+          "output": 110,
+          "target": 120
+        },
+        // ...
       ]
     },
     "stations": [
@@ -719,6 +712,7 @@ Get SPC (Statistical Process Control) data for a line or station.
 | `station` | string | No | `"all"` | `"all"`, `"OP10"`, ... | Filter by station |
 | `parameter` | string | Yes | - | See metadata | Measurement parameter |
 | `dateRange` | string | No | `"today"` | `"today"`, `"week"`, `"month"` | Date range |
+| `resolution` | string | No | `"raw"` | `"raw"`, `"hour"`, `"shift"`, `"day"`, `"month"` | **NEW:** Data aggregation level |
 
 **Response:**
 ```json

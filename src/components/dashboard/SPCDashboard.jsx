@@ -421,11 +421,20 @@ export default function SPCDashboard() {
 
                     {/* Control Points Data Table */}
                     <Card className="border border-border bg-card">
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="text-base font-semibold flex items-center gap-2">
                                 <TableIcon className="h-4 w-4 text-primary" />
                                 Control Chart Data Points
                             </CardTitle>
+                            {/* Performance Warning for Table */}
+                            {(charts.control_points || []).length > 100 && (
+                                <div className="text-xs text-muted-foreground bg-secondary px-3 py-1 rounded flex items-center gap-2">
+                                    <span>Showing last 100 of {charts.control_points.length} points</span>
+                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-primary hover:bg-primary/10" onClick={handleExport}>
+                                        View All (Export)
+                                    </Button>
+                                </div>
+                            )}
                         </CardHeader>
                         <CardContent>
                             <div className="border rounded overflow-x-auto">
@@ -441,7 +450,8 @@ export default function SPCDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {(charts.control_points || []).map((point, i) => {
+                                        {/* Slice to show only last 100 points to prevent DOM freeze */}
+                                        {(charts.control_points || []).slice(0, 100).map((point, i) => {
                                             const outOfControl = point.mean > (point.ucl || 105) || point.mean < (point.lcl || 95);
                                             return (
                                                 <tr key={i} className={cn(
