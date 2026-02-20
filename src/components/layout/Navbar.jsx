@@ -27,16 +27,6 @@ const Navbar = () => {
 
     const isDateChanged = tempStartDate !== filters.startDate || tempEndDate !== filters.endDate;
 
-    // Cascading options
-    const filteredLines = filters.plant === 'all'
-        ? metadata.lines
-        : metadata.lines.filter(l => l.plant_id === filters.plant);
-
-    const filteredStations = filters.line === 'all'
-        ? metadata.stations_meta
-        : metadata.stations_meta.filter(s => s.line_id === filters.line);
-
-    // Date ranges - static for now
     const DATERANGES = [
         { id: 'today', name: 'Today' },
         { id: 'yesterday', name: 'Yesterday' },
@@ -47,49 +37,17 @@ const Navbar = () => {
 
     if (metadataLoading) {
         return (
-            <header className="sticky top-0 z-30 w-full h-16 border-b border-border bg-background flex items-center px-6 py-2">
+            <header className="sticky top-0 z-30 w-full h-16 border-b border-border bg-background flex items-center px-6">
                 <div className="text-sm text-muted-foreground">Loading filters...</div>
             </header>
         );
     }
 
     return (
-        <header className="sticky top-0 z-30 w-full h-16 border-b border-border bg-background flex flex-wrap items-center px-6 py-2 gap-4 justify-between transition-all duration-300">
+        <header className="sticky top-0 z-30 w-full h-16 border-b border-border bg-background flex items-center px-6 gap-3 justify-between">
 
-            {/* Global Filters Bar */}
-            <div className="flex flex-wrap items-center gap-2 flex-1">
-
-                {/* Plant Selector */}
-                <Select
-                    value={filters.plant}
-                    onChange={(e) => updateFilter('plant', e.target.value)}
-                    className="min-w-[120px] max-w-[180px] w-auto h-8 text-xs font-medium"
-                >
-                    <option value="all">All Plants</option>
-                    {metadata.plants.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </Select>
-
-                {/* Line Selector */}
-                <Select
-                    value={filters.line}
-                    onChange={(e) => updateFilter('line', e.target.value)}
-                    className="min-w-[120px] max-w-[180px] w-auto h-8 text-xs font-medium"
-                >
-                    <option value="all">All Lines</option>
-                    {filteredLines.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </Select>
-
-                {/* Station Selector */}
-                <Select
-                    value={filters.station}
-                    onChange={(e) => updateFilter('station', e.target.value)}
-                    className="min-w-[120px] max-w-[180px] w-auto h-8 text-xs font-medium"
-                >
-                    <option value="all">All Stations</option>
-                    {filteredStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </Select>
-
-                <div className="h-6 w-px bg-border mx-1 hidden md:block" />
+            {/* Left: Shift + Date controls */}
+            <div className="flex items-center gap-2 flex-1">
 
                 {/* Shift Selector */}
                 <Select
@@ -100,12 +58,14 @@ const Navbar = () => {
                     {metadata.shifts.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </Select>
 
+                <div className="h-6 w-px bg-border" />
+
                 {/* Date Selector */}
                 <div className="flex items-center gap-2">
                     <Select
                         value={filters.dateRange}
                         onChange={(e) => updateFilter('dateRange', e.target.value)}
-                        className="w-[120px] h-8 text-xs font-medium"
+                        className="w-[130px] h-8 text-xs font-medium"
                     >
                         {DATERANGES.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </Select>
@@ -135,7 +95,9 @@ const Navbar = () => {
                                 variant={isDateChanged ? "default" : "outline"}
                                 className={cn(
                                     "h-8 px-3 gap-1.5 transition-all duration-200",
-                                    isDateChanged ? "shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 active:shadow-inner bg-primary hover:bg-primary/90" : "opacity-50 grayscale cursor-default"
+                                    isDateChanged
+                                        ? "shadow-md hover:shadow-lg hover:-translate-y-0.5 active:scale-95 active:shadow-inner bg-primary hover:bg-primary/90"
+                                        : "opacity-50 grayscale cursor-default"
                                 )}
                                 onClick={handleApplyDates}
                                 disabled={!isDateChanged}
@@ -146,25 +108,10 @@ const Navbar = () => {
                         </div>
                     )}
                 </div>
-
-                <div className="h-6 w-px bg-border mx-1 hidden md:block" />
-
-                {/* Page Selector: Production vs SPC */}
-                <div className="bg-primary/10 rounded-md p-0.5">
-                    <Select
-                        value={filters.viewMode}
-                        onChange={(e) => updateFilter('viewMode', e.target.value)}
-                        className="w-[140px] h-8 text-xs font-bold border-primary/20 text-primary"
-                    >
-                        <option value="production">📊 Production</option>
-                        <option value="spc">📈 SPC Dashboard</option>
-                    </Select>
-                </div>
             </div>
 
-            {/* Right: Display Mode Toggle + Logo */}
-            <div className="flex items-center gap-3 pr-8">
-                {/* TV Mode Toggle */}
+            {/* Right: TV Mode Toggle + DAT Logo */}
+            <div className="flex items-center gap-3">
                 <button
                     onClick={toggleTV}
                     className={cn(
@@ -184,11 +131,11 @@ const Navbar = () => {
 
                 <div className="h-6 w-px bg-border" />
 
-                <div className="flex items-center group cursor-default" title="Developed by Data Acquisition Technology">
+                <div className="flex items-center cursor-default" title="Developed by Data Acquisition Technology">
                     <img
                         src="/DAT.svg"
                         alt="DAT Logo"
-                        className="h-12 w-auto object-contain transition-all"
+                        className="h-12 w-auto object-contain"
                     />
                 </div>
             </div>

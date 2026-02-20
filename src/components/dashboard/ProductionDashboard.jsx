@@ -65,12 +65,14 @@ const LinePerformanceChart = ({ chartData = [] }) => {
                             <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                                 <XAxis
-                                    dataKey="time"
+                                    dataKey="time_label"
                                     stroke="hsl(var(--muted-foreground))"
                                     fontSize={chartFontSize}
                                     tickLine={false}
                                     axisLine={false}
                                     dy={10}
+                                    interval="preserveStartEnd"
+                                    minTickGap={40}
                                 />
                                 <YAxis
                                     stroke="hsl(var(--muted-foreground))"
@@ -185,6 +187,7 @@ const StationCard = ({ station }) => {
 export default function ProductionDashboard() {
     const { filters } = useFilters();
     const [viewMode, setViewMode] = useState('graph'); // 'graph' or 'table'
+    const [tableTab, setTableTab] = useState('velocity'); // 'velocity' or 'stations'
     const [exporting, setExporting] = useState(false);
     const [exportMessage, setExportMessage] = useState('');
 
@@ -202,10 +205,15 @@ export default function ProductionDashboard() {
     }, []); // Empty deps - function never recreates, always reads latest from ref
 
     // Fetch line status with polling - using configured interval
-    const { data: lineStatus, error, loading } = usePolling(
+    const { data: lineStatus, error, loading, refetch } = usePolling(
         fetchLineStatus,
         API_CONFIG.POLLING_INTERVAL
     );
+
+    // Immediately re-fetch when filters change (don't wait for next poll cycle)
+    useEffect(() => {
+        refetch();
+    }, [filters.resolution, filters.dateRange, filters.startDate, filters.endDate, filters.line, filters.shift, filters.station]);
 
     // Extract data from API response - display actual production data without any modification
     const kpiData = lineStatus?.line_kpi || {};
@@ -407,62 +415,129 @@ export default function ProductionDashboard() {
                 {viewMode === 'table' && (
                     <Card className="border border-border bg-card">
                         <CardHeader>
-                            <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <TableIcon className="h-4 w-4 text-primary" />
-                                Station Production Data
-                            </CardTitle>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                    <TableIcon className="h-4 w-4 text-primary" />
+                                    {tableTab === 'velocity' ? 'Production Velocity Data' : 'Station Production Data'}
+                                </CardTitle>
+                                {/* Sub-tab switcher */}
+                                <div className="bg-secondary p-0.5 rounded flex items-center text-xs">
+                                    <button
+                                        onClick={() => setTableTab('velocity')}
+                                        className={`px-3 py-1.5 rounded font-medium transition-all ${tableTab === 'velocity' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                    >
+                                        Velocity
+                                    </button>
+                                    <button
+                                        onClick={() => setTableTab('stations')}
+                                        className={`px-3 py-1.5 rounded font-medium transition-all ${tableTab === 'stations' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                    >
+                                        Stations
+                                    </button>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
-                            <div className="border rounded-md overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-slate-800 text-white sticky top-0 z-10">
-                                        <tr>
-                                            <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Station</th>
-                                            <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Operator</th>
-                                            <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Status</th>
-                                            <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Output</th>
-                                            <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Cycle Time</th>
-                                            <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Efficiency</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {stationsData.map((station) => {
-                                            const statusStyles = {
-                                                running: 'text-success bg-success/10',
-                                                warning: 'text-warning bg-warning/10',
-                                                fault: 'text-destructive bg-destructive/10',
-                                                idle: 'text-muted-foreground bg-muted/50',
-                                            };
-                                            const style = statusStyles[station.status] || 'text-muted-foreground bg-muted/50';
-                                            return (
-                                                <tr key={station.id} className={cn(
-                                                    'border-b transition-colors hover:bg-muted/50',
-                                                    station.status === 'fault' && 'bg-destructive/5',
-                                                    station.status !== 'fault' && stationsData.indexOf(station) % 2 === 1 && 'bg-muted/20'
-                                                )}>
-                                                    <td className="p-4 font-medium whitespace-nowrap">{station.name}</td>
-                                                    <td className="p-4 whitespace-nowrap">{station.operator || 'Auto'}</td>
-                                                    <td className="p-4">
-                                                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${style}`}>
-                                                            {station.status === 'fault' && '⚠ '}{station.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="p-4 text-right font-mono tabular-nums">{station.produced || 0}</td>
-                                                    <td className="p-4 text-right font-mono tabular-nums">{station.cycle_time}s</td>
-                                                    <td className={cn('p-4 text-right font-mono tabular-nums font-semibold', (station.efficiency || 0) >= 90 ? 'text-success' : (station.efficiency || 0) >= 80 ? 'text-warning' : 'text-destructive')}>{station.efficiency || 0}%</td>
-                                                </tr>
-                                            );
-                                        })}
-                                        {stationsData.length === 0 && (
+
+                            {/* ── Velocity Table ── */}
+                            {tableTab === 'velocity' && (
+                                <div className="border rounded-md overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-800 text-white sticky top-0 z-10">
                                             <tr>
-                                                <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                                                    No station data available
-                                                </td>
+                                                <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Time</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Actual Output</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Target</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Variance</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">vs Target</th>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            {chartData.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="p-8 text-center text-muted-foreground">No velocity data available</td>
+                                                </tr>
+                                            )}
+                                            {chartData.map((row, i) => {
+                                                const variance = (row.output ?? 0) - (row.target ?? 0);
+                                                const pct = row.target ? ((row.output / row.target) * 100).toFixed(1) : '—';
+                                                const isAbove = variance >= 0;
+                                                return (
+                                                    <tr key={i} className={cn(
+                                                        'border-b transition-colors hover:bg-muted/50',
+                                                        i % 2 === 1 && 'bg-muted/20'
+                                                    )}>
+                                                        <td className="p-4 font-mono tabular-nums whitespace-nowrap">{row.time_label}</td>
+                                                        <td className="p-4 text-right font-mono tabular-nums font-medium">{row.output ?? '—'}</td>
+                                                        <td className="p-4 text-right font-mono tabular-nums text-muted-foreground">{row.target ?? '—'}</td>
+                                                        <td className={cn('p-4 text-right font-mono tabular-nums font-semibold', isAbove ? 'text-success' : 'text-destructive')}>
+                                                            {variance > 0 ? '+' : ''}{variance}
+                                                        </td>
+                                                        <td className={cn('p-4 text-right font-mono tabular-nums', isAbove ? 'text-success' : 'text-destructive')}>
+                                                            {pct}%
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {/* ── Station Status Table ── */}
+                            {tableTab === 'stations' && (
+                                <div className="border rounded-md overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-800 text-white sticky top-0 z-10">
+                                            <tr>
+                                                <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Station</th>
+                                                <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Operator</th>
+                                                <th className="h-11 px-4 text-left font-semibold text-sm whitespace-nowrap">Status</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Output</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Cycle Time</th>
+                                                <th className="h-11 px-4 text-right font-semibold text-sm whitespace-nowrap">Efficiency</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {stationsData.map((station) => {
+                                                const statusStyles = {
+                                                    running: 'text-success bg-success/10',
+                                                    warning: 'text-warning bg-warning/10',
+                                                    fault: 'text-destructive bg-destructive/10',
+                                                    idle: 'text-muted-foreground bg-muted/50',
+                                                };
+                                                const style = statusStyles[station.status] || 'text-muted-foreground bg-muted/50';
+                                                return (
+                                                    <tr key={station.id} className={cn(
+                                                        'border-b transition-colors hover:bg-muted/50',
+                                                        station.status === 'fault' && 'bg-destructive/5',
+                                                        station.status !== 'fault' && stationsData.indexOf(station) % 2 === 1 && 'bg-muted/20'
+                                                    )}>
+                                                        <td className="p-4 font-medium whitespace-nowrap">{station.name}</td>
+                                                        <td className="p-4 whitespace-nowrap">{station.operator || 'Auto'}</td>
+                                                        <td className="p-4">
+                                                            <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${style}`}>
+                                                                {station.status === 'fault' && '⚠ '}{station.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 text-right font-mono tabular-nums">{station.produced || 0}</td>
+                                                        <td className="p-4 text-right font-mono tabular-nums">{station.cycle_time}s</td>
+                                                        <td className={cn('p-4 text-right font-mono tabular-nums font-semibold', (station.efficiency || 0) >= 90 ? 'text-success' : (station.efficiency || 0) >= 80 ? 'text-warning' : 'text-destructive')}>{station.efficiency || 0}%</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {stationsData.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={6} className="p-8 text-center text-muted-foreground">No station data available</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
                         </CardContent>
                     </Card>
                 )}

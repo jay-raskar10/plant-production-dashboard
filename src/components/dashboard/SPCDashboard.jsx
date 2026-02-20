@@ -54,10 +54,15 @@ export default function SPCDashboard() {
     }, [selectedParameter]); // Only recreate when selectedParameter changes
 
     // Fetch SPC data with polling
-    const { data: spcData, error, loading } = usePolling(
+    const { data: spcData, error, loading, refetch } = usePolling(
         fetchSPCData,
         API_CONFIG.POLLING_INTERVAL
     );
+
+    // Immediately re-fetch when filters change
+    useEffect(() => {
+        refetch();
+    }, [filters.resolution, filters.dateRange, filters.startDate, filters.endDate, filters.line, filters.shift, filters.station]);
 
     // Extract SPC data from the nested 'spc' object returned by the API
     const spcContent = spcData?.spc || {};

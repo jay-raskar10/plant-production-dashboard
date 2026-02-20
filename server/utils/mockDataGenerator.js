@@ -44,17 +44,68 @@ const generateTrend = (seed = 0) => {
   return randomInRange(-5, 8, seed); // Slightly biased toward positive
 };
 
-// Generate KPI data with realistic values
-export const generateLineKPI = (filters = {}) => {
-  const seed = Date.now() / 10000; // Changes slowly over time
+// Month name lookup
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  const targetProduction = 1400;
-  const currentProduction = Math.floor(randomInRange(1100, 1450, seed));
+/**
+ * Resolve actual start/end Date objects from dateRange presets or custom dates.
+ */
+const resolveDateBounds = (dateRange, startDateStr, endDateStr) => {
+  const now = new Date();
+  let start, end;
+
+  if (dateRange === 'custom' && startDateStr && endDateStr) {
+    start = new Date(startDateStr); start.setHours(0, 0, 0, 0);
+    end = new Date(endDateStr); end.setHours(23, 59, 59, 999);
+  } else if (dateRange === 'yesterday') {
+    start = new Date(now); start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+    end = new Date(start); end.setHours(23, 59, 59, 999);
+  } else if (dateRange === 'last7') {
+    end = new Date(now);
+    start = new Date(now); start.setDate(start.getDate() - 7); start.setHours(0, 0, 0, 0);
+  } else if (dateRange === 'last30') {
+    end = new Date(now);
+    start = new Date(now); start.setDate(start.getDate() - 30); start.setHours(0, 0, 0, 0);
+  } else {
+    // 'today' or fallback
+    start = new Date(now); start.setHours(0, 0, 0, 0);
+    end = new Date(now);
+  }
+
+  return { start, end };
+};
+
+/**
+ * Simple hash from a string to produce a deterministic numeric seed.
+ */
+const hashString = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+// Generate KPI data — date-range-aware so values change per selection
+export const generateLineKPI = (filters = {}) => {
+  // Derive seed from date range so different dates = different values
+  const { dateRange = 'today', startDate, endDate, resolution = 'raw' } = filters;
+  const seedStr = `${dateRange}-${startDate || 'x'}-${endDate || 'x'}`;
+  const seed = hashString(seedStr);
+
+  // Scale production totals by the time span
+  const { start, end } = resolveDateBounds(dateRange, startDate, endDate);
+  const spanDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+  const dailyTarget = 1400; // target per day
+  const totalTarget = dailyTarget * spanDays;
+  const efficiency = randomInRange(0.78, 0.96, seed);
+  const currentProduction = Math.floor(totalTarget * efficiency);
 
   return {
     production: {
       current: currentProduction,
-      target: targetProduction,
+      target: totalTarget,
       trend: Number(generateTrend(seed).toFixed(1))
     },
     oee: {
@@ -62,7 +113,7 @@ export const generateLineKPI = (filters = {}) => {
       trend: Number(generateTrend(seed + 1).toFixed(1))
     },
     rejection: {
-      count: Math.floor(randomInRange(8, 25, seed + 2))
+      count: Math.floor(randomInRange(8, 25, seed + 2) * Math.sqrt(spanDays))
     },
     efficiency: {
       value: Number(randomInRange(85, 96, seed + 3).toFixed(1))
@@ -70,39 +121,104 @@ export const generateLineKPI = (filters = {}) => {
   };
 };
 
-// Generate time-series data for velocity chart
-export const generateVelocityChart = (hoursInput = 12) => {
+/**
+ * Generate time-series data for velocity chart.
+ * Date-range aware — generates data only within [startDate, endDate].
+ * Resolution determines granularity:
+ *   - 'month' → one point per month in the range
+ *   - 'day'   → one point per day
+ *   - 'shift' → 3 points per day (A/B/C shifts)
+ *   - 'hour'  → one point per hour
+ *   - 'raw'   → 10-min intervals
+ */
+export const generateVelocityChart = (resolution = 'raw', startDate = null, endDate = null) => {
   const data = [];
-  const now = new Date();
   const targetPerHour = 120;
+  // Use provided dates or defaults
+  const start = startDate ? new Date(startDate) : new Date(new Date().setHours(0, 0, 0, 0));
+  const end = endDate ? new Date(endDate) : new Date();
 
-  let count = hoursInput;
-  let intervalMin = 60; // default 1 hour
-
-  const size = process.env.MOCK_DATA_SIZE || 'normal';
-  if (size === 'medium') {
-    count = 100;
-    intervalMin = 1;
-  }
-  else if (size === 'large') {
-    count = 1000;
-    intervalMin = 5;
-  } else if (size === 'xl') {
-    count = 10000;
-    intervalMin = 1;
-  }
-
-  for (let i = count; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * intervalMin * 60 * 1000);
-    const hour = time.getHours();
-    const minute = time.getMinutes();
-    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-    data.push({
-      time: timeStr,
-      output: Math.floor(randomInRange(90, 150, i)),
-      target: targetPerHour
-    });
+  if (resolution === 'month') {
+    // Iterate month by month within the range
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    let seed = 0;
+    while (cursor <= endMonth) {
+      const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+      const monthlyTarget = targetPerHour * 16 * daysInMonth;
+      const efficiency = randomInRange(0.78, 0.96, seed);
+      data.push({
+        time_label: `${MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}`,
+        output: Math.floor(monthlyTarget * efficiency),
+        target: monthlyTarget,
+      });
+      cursor.setMonth(cursor.getMonth() + 1);
+      seed++;
+    }
+  } else if (resolution === 'day') {
+    // Iterate day by day within the range
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    let seed = 0;
+    const dailyTarget = targetPerHour * 16;
+    while (cursor <= end) {
+      const efficiency = randomInRange(0.78, 0.96, seed);
+      data.push({
+        time_label: `${cursor.getDate().toString().padStart(2, '0')}/${(cursor.getMonth() + 1).toString().padStart(2, '0')}`,
+        output: Math.floor(dailyTarget * efficiency),
+        target: dailyTarget,
+      });
+      cursor.setDate(cursor.getDate() + 1);
+      seed++;
+    }
+  } else if (resolution === 'shift') {
+    // 3 shifts per day within the range
+    const shiftTarget = targetPerHour * 8;
+    const shiftNames = ['A', 'B', 'C'];
+    const cursor = new Date(start);
+    cursor.setHours(0, 0, 0, 0);
+    let seed = 0;
+    while (cursor <= end) {
+      const dayStr = `${cursor.getDate().toString().padStart(2, '0')}/${(cursor.getMonth() + 1).toString().padStart(2, '0')}`;
+      for (let s = 0; s < 3; s++) {
+        const efficiency = randomInRange(0.75, 0.98, seed);
+        data.push({
+          time_label: `${dayStr} - ${shiftNames[s]}`,
+          output: Math.floor(shiftTarget * efficiency),
+          target: shiftTarget,
+        });
+        seed++;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  } else if (resolution === 'hour') {
+    // Hourly within the range
+    const cursor = new Date(start);
+    let seed = 0;
+    while (cursor <= end) {
+      data.push({
+        time_label: `${cursor.getHours().toString().padStart(2, '0')}:00`,
+        output: Math.floor(randomInRange(90, 150, seed)),
+        target: targetPerHour,
+      });
+      cursor.setTime(cursor.getTime() + 60 * 60 * 1000);
+      seed++;
+    }
+  } else {
+    // 'raw' — 10-min intervals within the range
+    const cursor = new Date(start);
+    let seed = 0;
+    while (cursor <= end) {
+      const hour = cursor.getHours();
+      const minute = cursor.getMinutes();
+      data.push({
+        time_label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+        output: Math.floor(randomInRange(90, 150, seed)),
+        target: targetPerHour,
+      });
+      cursor.setTime(cursor.getTime() + 10 * 60 * 1000);
+      seed++;
+    }
   }
 
   return data;
@@ -155,10 +271,12 @@ export const generateStations = (lineId = 'fcpv') => {
   });
 };
 
-// Generate SPC control chart data
-export const generateSPCControlPoints = (limitOverride = null) => {
+/**
+ * Generate SPC control chart data.
+ * Date-range aware — generates points within [startDate, endDate].
+ */
+export const generateSPCControlPoints = (resolution = 'raw', startDate = null, endDate = null) => {
   const data = [];
-  const now = new Date();
   const target = 100;
   const ucl = 105;
   const lcl = 95;
@@ -166,44 +284,80 @@ export const generateSPCControlPoints = (limitOverride = null) => {
   const ucl_r = 3;
   const lcl_r = 0;
 
-  // Determine data size based on env var or override
-  let count = 20; // Default 'normal'
-  const size = process.env.MOCK_DATA_SIZE || 'normal';
+  const start = startDate ? new Date(startDate) : new Date(new Date().setHours(0, 0, 0, 0));
+  const end = endDate ? new Date(endDate) : new Date();
 
-  if (limitOverride) {
-    count = limitOverride;
-  } else if (size === 'large') {
-    count = 10000;
-  } else if (size === 'xl') {
-    count = 100000;
-  } else if (size === 'normal') {
-    count = 20;
+  // Build label entries based on resolution and date range
+  const entries = [];
+  if (resolution === 'month') {
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+    let seed = 0;
+    while (cursor <= endMonth) {
+      entries.push({ label: `${MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}`, seed });
+      cursor.setMonth(cursor.getMonth() + 1);
+      seed++;
+    }
+  } else if (resolution === 'day') {
+    const cursor = new Date(start); cursor.setHours(0, 0, 0, 0);
+    let seed = 0;
+    while (cursor <= end) {
+      entries.push({
+        label: `${cursor.getDate().toString().padStart(2, '0')}/${(cursor.getMonth() + 1).toString().padStart(2, '0')}`,
+        seed
+      });
+      cursor.setDate(cursor.getDate() + 1);
+      seed++;
+    }
+  } else if (resolution === 'shift') {
+    const shiftNames = ['A', 'B', 'C'];
+    const cursor = new Date(start); cursor.setHours(0, 0, 0, 0);
+    let seed = 0;
+    while (cursor <= end) {
+      const dayStr = `${cursor.getDate().toString().padStart(2, '0')}/${(cursor.getMonth() + 1).toString().padStart(2, '0')}`;
+      for (let s = 0; s < 3; s++) {
+        entries.push({ label: `${dayStr} - ${shiftNames[s]}`, seed });
+        seed++;
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  } else if (resolution === 'hour') {
+    const cursor = new Date(start);
+    let seed = 0;
+    while (cursor <= end) {
+      entries.push({ label: `${cursor.getHours().toString().padStart(2, '0')}:00`, seed });
+      cursor.setTime(cursor.getTime() + 60 * 60 * 1000);
+      seed++;
+    }
+  } else {
+    // 'raw' — 30-min intervals
+    const cursor = new Date(start);
+    let seed = 0;
+    while (cursor <= end) {
+      const hour = cursor.getHours();
+      const minute = cursor.getMinutes();
+      entries.push({ label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`, seed });
+      cursor.setTime(cursor.getTime() + 30 * 60 * 1000);
+      seed++;
+    }
   }
 
-  // Adjust time interval based on count to keep data within reasonable recent timeframe
-  // For large datasets, we might need smaller intervals or span longer time
-  // Let's keep it simple: 10k points * 1 min = ~7 days. 100k points * 1 min = ~70 days.
-  const intervalMinutes = count > 1000 ? 1 : 30;
+  // For aggregated resolutions, tighten variation (averages are less noisy)
+  const isAggregated = resolution !== 'raw';
+  const variation = isAggregated ? 2 : 4;
+  const outOfControlThreshold = isAggregated ? 0.97 : 0.9;
 
-  for (let i = count; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * intervalMinutes * 60 * 1000);
-    const hour = time.getHours();
-    const minute = time.getMinutes();
-    // For large datasets, include date in label if needed, but for now keeping HH:MM
-    // To distinguish days in large datasets, might need full date, but UI might not handle it well yet.
-    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-    // Occasionally generate out-of-control points
-    const isOutOfControl = randomInRange(0, 1, i) > 0.99; // Lower probability for large datasets to avoid too many alerts?
-    let mean = target + randomInRange(-4, 4, i);
+  for (const { label, seed } of entries) {
+    const isOutOfControl = randomInRange(0, 1, seed) > outOfControlThreshold;
+    let mean = target + randomInRange(-variation, variation, seed);
     if (isOutOfControl) {
-      mean = randomInRange(0, 1, i + 100) > 0.5 ? ucl + 2 : lcl - 2;
+      mean = randomInRange(0, 1, seed + 100) > 0.5 ? ucl + 2 : lcl - 2;
     }
 
     data.push({
-      time: timeStr,
+      time_label: label,
       mean: Number(mean.toFixed(2)),
-      range: Number(randomInRange(0.5, 2.5, i + 50).toFixed(2)),
+      range: Number(randomInRange(0.5, isAggregated ? 1.5 : 2.5, seed + 50).toFixed(2)),
       ucl,
       lcl,
       cl,
@@ -215,21 +369,22 @@ export const generateSPCControlPoints = (limitOverride = null) => {
   return data;
 };
 
-// Generate SPC metrics
-export const generateSPCMetrics = () => {
+// Generate SPC metrics — date-range-aware via seed
+export const generateSPCMetrics = (seed = 1) => {
+  const cpVal = Number(randomInRange(1.33, 1.80, seed).toFixed(2));
   return {
     cp: {
-      value: Number(randomInRange(1.33, 1.80, 1).toFixed(2)),
-      status: 'Excellent'
+      value: cpVal,
+      status: cpVal >= 1.67 ? 'Excellent' : cpVal >= 1.33 ? 'Good' : 'Needs Improvement'
     },
     cpk: {
-      value: Number(randomInRange(1.20, 1.65, 2).toFixed(2))
+      value: Number(randomInRange(1.20, 1.65, seed + 10).toFixed(2))
     },
     pp: {
-      value: Number(randomInRange(1.25, 1.70, 3).toFixed(2))
+      value: Number(randomInRange(1.25, 1.70, seed + 20).toFixed(2))
     },
     ppk: {
-      value: Number(randomInRange(1.15, 1.55, 4).toFixed(2))
+      value: Number(randomInRange(1.15, 1.55, seed + 30).toFixed(2))
     }
   };
 };
@@ -274,23 +429,32 @@ export const generateSPCAlerts = () => {
 
 // Generate complete line status (Production + SPC)
 export const generateLineStatus = (filters = {}) => {
+  const resolution = filters.resolution || 'raw';
+  const { start, end } = resolveDateBounds(filters.dateRange, filters.startDate, filters.endDate);
+  // Derive a date-based seed for SPC metrics
+  const spcSeed = hashString(`${filters.dateRange || 'today'}-${filters.startDate || 'x'}-${filters.endDate || 'x'}-spc`);
+
   return {
     line_kpi: generateLineKPI(filters),
     charts: {
-      velocity: generateVelocityChart(12)
+      velocity: generateVelocityChart(resolution, start, end)
     },
     downtime: {
       top_reasons: generateDowntimeReasons()
     },
     stations: generateStations(filters.line || 'fcpv'),
     spc: {
-      metrics: generateSPCMetrics(),
+      metrics: generateSPCMetrics(spcSeed),
       charts: {
-        control_points: generateSPCControlPoints(), // No arg means use env var logic
+        control_points: generateSPCControlPoints(resolution, start, end),
         histogram: generateHistogram(),
         defects: generateDefects()
       },
       alerts: generateSPCAlerts()
+    },
+    meta: {
+      resolution,
+      generated_at: new Date().toISOString()
     }
   };
 };

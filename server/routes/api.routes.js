@@ -50,7 +50,10 @@ router.get('/line_status', validateLineStatus, handleValidationErrors, async (re
             line: req.query.line || 'fcpv',
             station: req.query.station || 'all',
             shift: req.query.shift || 'all',
-            dateRange: req.query.dateRange || 'today'
+            dateRange: req.query.dateRange || 'today',
+            resolution: req.query.resolution || 'raw',
+            startDate: req.query.startDate || null,
+            endDate: req.query.endDate || null
         };
 
         const lineStatus = USE_MOCK ? generateLineStatus(filters) : await labviewService.getLineStatus(filters);
